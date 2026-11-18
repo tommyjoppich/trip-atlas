@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trip Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="vendor/d3.min.js"></script>
+<script src="vendor/topojson-client.min.js"></script>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1d5c63">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Trip Atlas">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<meta name="description" content="A personal travel map: track your trips, photos and notes on a globe.">
+<style>
+:root{
+  --paper:#f5f0e6; --paper-2:#ece5d6; --card:#fffdf8; --ink:#1e2a2f; --ink-2:#56636a; --line:#d9d0bf;
+  --ocean:#d6e4e6; --ocean-2:#c3d7da; --land:#e8e0cf; --land-muted:#efe9dc; --border:#b9ad96;
+  --visited:#d9693a; --visited-2:#ec9a72; --accent:#1d5c63; --accent-2:#2b7c85; --danger:#b3392f;
+  --radius:14px; --shadow:0 1px 2px rgba(30,42,47,.06),0 6px 20px rgba(30,42,47,.08);
+  --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+  --sal:env(safe-area-inset-left,0px); --sar:env(safe-area-inset-right,0px);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{min-height:100dvh;display:flex;flex-direction:column}
+body{background:var(--paper);color:var(--ink);font:16px/1.45 Inter,system-ui,-apple-system,Segoe UI,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3,.brand{font-family:Fraunces,Georgia,serif;font-weight:650;letter-spacing:-.01em}
+button,input,textarea,select{font:inherit;color:inherit}
+a{color:var(--accent)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:3px solid var(--accent-2);outline-offset:2px;border-radius:6px}
+
+/* ---------- top bar ---------- */
+.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;
+  padding:calc(10px + var(--sat)) calc(16px + var(--sar)) 10px calc(16px + var(--sal));
+  background:rgba(245,240,230,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.brand{font-size:21px;margin:0;display:flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap;background:none;border:0;padding:0}
+.brand svg{flex:none}
+.crumbs{display:flex;align-items:center;gap:4px;min-width:0;overflow:hidden;font-size:14px;color:var(--ink-2)}
+.crumbs a{color:var(--ink-2);text-decoration:none;padding:4px 6px;border-radius:8px;white-space:nowrap}
+.crumbs a:hover{background:var(--paper-2);color:var(--ink)}
+.crumbs .cur{color:var(--ink);font-weight:600;padding:4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crumbs .sep{opacity:.5}
+.spacer{flex:1}
+.stats{display:flex;gap:14px;font-size:13px;color:var(--ink-2);white-space:nowrap}
+.stats b{color:var(--ink);font-size:15px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:42px;padding:0 16px;border-radius:999px;
+  border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:600;font-size:15px;text-decoration:none;color:var(--ink);white-space:nowrap}
+.btn:hover{border-color:var(--border)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-2)}
+.btn.danger{color:var(--danger)}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.sm{min-height:36px;padding:0 12px;font-size:14px}
+.btn[disabled]{opacity:.55;cursor:default}
+.iconbtn{width:42px;height:42px;padding:0;border-radius:50%}
+
+/* ---------- layout ---------- */
+.layout{display:grid;grid-template-columns:minmax(300px,360px) 1fr;flex:1;min-height:0;height:0}
+@media (min-width:821px){body{height:100dvh}}
+.panel{border-right:1px solid var(--line);overflow:auto;padding:18px 16px calc(24px + var(--sab)) calc(16px + var(--sal));background:var(--paper)}
+.stage{position:relative;overflow:hidden;background:var(--ocean)}
+.stage.globe-bg{background:radial-gradient(ellipse at 50% 45%,#f9f5ec 0%,#efe8da 60%,#e6ddca 100%)}
+.stage svg{display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none}
+.stage.full{grid-column:1 / -1;overflow:auto;background:var(--paper)}
+.panel h2{font-size:24px;margin:0 0 2px}
+.panel .sub{color:var(--ink-2);font-size:14px;margin:0 0 14px}
+.panel h3{font-family:Inter,sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2);margin:20px 0 8px;font-weight:600}
+
+/* search */
+.search{position:relative;margin:6px 0 12px}
+.search input{width:100%;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);padding:0 12px 0 38px}
+.search svg{position:absolute;left:12px;top:13px;color:var(--ink-2)}
+
+/* trip list */
+.triplist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.tripitem{display:flex;gap:12px;align-items:center;width:100%;text-align:left;padding:10px;border-radius:12px;border:1px solid transparent;background:var(--card);cursor:pointer;box-shadow:0 1px 0 rgba(0,0,0,.03)}
+.tripitem:hover,.tripitem.hot{border-color:var(--border)}
+.thumb{flex:none;width:58px;height:58px;border-radius:10px;background:var(--paper-2) center/cover no-repeat;display:grid;place-items:center;color:var(--ink-2);overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.tripmeta{min-width:0;flex:1}
+.tripmeta .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tripmeta .d{font-size:13px;color:var(--ink-2)}
+.tripmeta .r{font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:#e6efe9;color:var(--accent);margin-left:6px;vertical-align:1px}
+.empty{padding:18px;border:1.5px dashed var(--border);border-radius:var(--radius);color:var(--ink-2);text-align:center;font-size:15px}
+.empty .btn{margin-top:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:14px;cursor:pointer;color:var(--ink);text-decoration:none}
+.chip:hover{border-color:var(--border)}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--visited)}
+.chip.off .dot{background:var(--line)}
+
+/* map */
+.country{fill:var(--land);stroke:var(--border);stroke-width:.6px;vector-effect:non-scaling-stroke;transition:fill .15s}
+.country.visited{fill:var(--visited-2)}
+.country.muted{fill:var(--land-muted);stroke:#d6ccb8}
+.country.muted.visited{fill:#f1c6ae}
+.country.clickable{cursor:pointer}
+.country.hl{fill:#d9cfba}
+.country.visited.hl{fill:var(--visited)}
+.country.focus{fill:#e1d6bf;stroke:var(--ink);stroke-width:1.4px}
+.country.focus.visited{fill:var(--visited-2)}
+.state{fill:transparent;stroke:#b9ad96;stroke-width:.5px;vector-effect:non-scaling-stroke}
+.state.visited{fill:var(--visited-2)}
+.state.clickable{cursor:pointer;fill:var(--land)}
+.state.clickable.visited{fill:var(--visited-2)}
+.state.clickable:hover,.state.clickable.hl{fill:#d9cfba}
+.state.clickable.visited:hover{fill:var(--visited)}
+.sphere{fill:url(#oceanGrad);stroke:#a9bfc2;stroke-width:1px}
+.grat{fill:none;stroke:#fff;stroke-opacity:.45;stroke-width:.5px}
+.pin circle{fill:var(--accent);stroke:#fff;stroke-width:2px;vector-effect:non-scaling-stroke;cursor:pointer}
+.pin.hot circle{fill:var(--visited)}
+.pin text{font:600 12px Inter,sans-serif;fill:var(--ink);paint-order:stroke;stroke:#fffdf8;stroke-width:3.5px;stroke-linejoin:round;pointer-events:none}
+.route{fill:none;stroke:var(--accent);stroke-width:2px;stroke-dasharray:5 5;vector-effect:non-scaling-stroke;opacity:.75}
+.route.hot{stroke:var(--visited);opacity:1}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:#fff;font-size:13px;padding:6px 10px;border-radius:8px;transform:translate(-50%,calc(-100% - 12px));white-space:nowrap;opacity:0;transition:opacity .12s;z-index:5}
+.tip.on{opacity:1}
+.mapctl{position:absolute;right:calc(14px + var(--sar));bottom:14px;display:flex;flex-direction:column;gap:8px;z-index:4}
+.mapctl .btn{box-shadow:var(--shadow)}
+.maphint{position:absolute;left:14px;bottom:14px;font-size:13px;color:var(--ink-2);background:rgba(255,253,248,.85);padding:6px 10px;border-radius:999px;z-index:3;max-width:calc(100% - 90px)}
+.legend{position:absolute;left:14px;top:14px;display:flex;gap:12px;font-size:12px;color:var(--ink-2);background:rgba(255,253,248,.85);padding:6px 10px;border-radius:999px;z-index:3}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-2)}
+.banner{margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#fff4e5;border:1px solid #f1d3a8;font-size:14px}
+
+/* ---------- trip page ---------- */
+.page{max-width:1100px;margin:0 auto;padding:22px calc(18px + var(--sar)) calc(40px + var(--sab)) calc(18px + var(--sal))}
+.pagehead{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.pagehead h1{font-size:34px;line-height:1.1;margin:0;flex:1;min-width:220px}
+.tripcard{display:grid;grid-template-columns:340px 1fr;gap:0;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.tripinfo{order:1;padding:22px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:18px}
+.tripinfo .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2);font-weight:600;margin-bottom:6px}
+.tripinfo .dates{font-family:Fraunces,serif;font-size:20px}
+.notes{white-space:pre-wrap;font-size:15px}
+.gallery{order:2;position:relative;background:#1b2327;min-height:460px;display:flex;flex-direction:column}
+.gallery .frame{position:relative;flex:1;display:grid;place-items:center;overflow:hidden;touch-action:pan-y}
+.gallery .frame img{max-width:100%;max-height:70vh;object-fit:contain;display:block;cursor:zoom-in}
+.gallery .nav{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:46px;border-radius:50%;border:0;background:rgba(255,255,255,.88);cursor:pointer;display:grid;place-items:center;box-shadow:var(--shadow)}
+.gallery .nav.prev{left:12px}.gallery .nav.next{right:12px}
+.gallery .bar{display:flex;align-items:center;gap:10px;padding:10px 14px;color:#e9e4da;font-size:14px}
+.dots{display:flex;gap:6px;flex-wrap:wrap}
+.dots button{width:9px;height:9px;padding:0;border-radius:50%;border:0;background:rgba(255,255,255,.35);cursor:pointer}
+.dots button.on{background:#fff}
+.gallery .cap{flex:1;text-align:right;opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gallery .none{color:#cfc8bb;text-align:center;padding:40px}
+.lightbox{position:fixed;inset:0;background:rgba(10,14,16,.94);z-index:100;display:grid;place-items:center}
+.lightbox img{max-width:96vw;max-height:90vh;object-fit:contain}
+.lightbox .x{position:absolute;top:calc(12px + var(--sat));right:12px}
+
+/* ---------- form ---------- */
+.form{display:flex;flex-direction:column;gap:18px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:var(--shadow)}
+.field label,.field .lbl{display:block;font-weight:600;font-size:14px;margin-bottom:6px}
+.field .hint{font-weight:400;color:var(--ink-2);font-size:13px}
+.field input[type=text],.field input[type=date],.field textarea,.field input[type=search]{width:100%;min-height:46px;border-radius:12px;border:1px solid var(--line);background:#fff;padding:10px 12px;font-size:16px}
+.field textarea{min-height:120px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.dests{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.dest{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.dest .n{font-weight:600}.dest .w{font-size:13px;color:var(--ink-2)}
+.dest .grow{flex:1;min-width:0}
+.dest .num{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:600;flex:none}
+.friendbox{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:46px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:6px 8px}
+.friendbox input{border:0;outline:0;flex:1;min-width:140px;height:32px;font-size:16px;background:transparent}
+.friendbox .chip{min-height:30px;cursor:default}
+.friendbox .chip button{border:0;background:none;padding:0 0 0 2px;cursor:pointer;font-size:16px;line-height:1;color:var(--ink-2)}
+.drop{border:1.5px dashed var(--border);border-radius:14px;padding:18px;text-align:center;color:var(--ink-2);background:#fffcf6}
+.drop.over{background:#eef5f3;border-color:var(--accent)}
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:10px}
+.ph{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#fff}
+.ph img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--paper-2)}
+.ph input{width:100%;border:0;border-top:1px solid var(--line);padding:8px;font-size:14px;min-height:38px}
+.ph .tools{position:absolute;top:6px;right:6px;display:flex;gap:4px}
+.ph .tools button{width:32px;height:32px;border-radius:50%;border:0;background:rgba(255,255,255,.92);cursor:pointer;display:grid;place-items:center;font-size:15px}
+.ph .cover{position:absolute;left:6px;top:6px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px}
+.formactions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.err{color:var(--danger);font-size:14px}
+.progress{font-size:14px;color:var(--ink-2)}
+
+/* modal */
+.modal{position:fixed;inset:0;z-index:90;background:rgba(20,26,28,.5);display:grid;place-items:center;padding:16px}
+.modal .box{background:var(--card);border-radius:18px;width:min(980px,100%);max-height:calc(100dvh - 32px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal .mh{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.modal .mh h2{margin:0;font-size:20px;flex:1}
+.picker{display:grid;grid-template-columns:320px 1fr;min-height:0;flex:1}
+.picker .side{padding:14px;border-right:1px solid var(--line);overflow:auto;display:flex;flex-direction:column;gap:12px}
+.picker .mapwrap{position:relative;min-height:420px;background:var(--ocean);overflow:hidden}
+.results{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;max-height:260px;overflow:auto}
+.results button{width:100%;text-align:left;padding:9px 10px;border:0;border-radius:10px;background:transparent;cursor:pointer}
+.results button:hover,.results button.sel{background:var(--paper-2)}
+.results small{color:var(--ink-2);display:block;font-size:12px}
+.picked{padding:12px;border-radius:12px;background:#eef5f3;font-size:14px}
+.modal .mf{display:flex;gap:10px;justify-content:flex-end;padding:12px 16px calc(12px + var(--sab));border-top:1px solid var(--line)}
+.confirm .box{max-width:420px;padding:22px}
+.confirm h2{margin:0 0 6px;font-size:22px}
+.toast{position:fixed;left:50%;bottom:calc(20px + var(--sab));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;z-index:120;box-shadow:var(--shadow)}
+
+/* ---------- mobile ---------- */
+@media (max-width:820px){
+  .stats{display:none}
+  .topbar{flex-wrap:wrap;row-gap:4px}
+  .crumbs{order:3;width:100%;font-size:13px}
+  .brand{font-size:19px}
+  .layout{display:flex;flex-direction:column;height:auto}
+  .stage{height:58svh;min-height:340px;order:1}
+  .panel{order:2;border-right:0;border-top:1px solid var(--line);overflow:visible}
+  .layout{height:auto;flex:none}
+  .stage.full{height:auto;min-height:0}
+  .tripcard{grid-template-columns:1fr}
+  .tripinfo{border-right:0;border-top:1px solid var(--line);order:2}
+  .gallery{order:1;min-height:300px}
+  .gallery .frame img{max-height:55vh}
+  .pagehead h1{font-size:28px}
+  .row2{grid-template-columns:1fr}
+  .form{padding:16px}
+  .modal{padding:0}
+  .modal .box{border-radius:0;max-height:100dvh;height:100dvh}
+  .picker{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .picker .side{border-right:0;border-bottom:1px solid var(--line);max-height:42dvh}
+  .picker .mapwrap{min-height:260px}
+  .results{max-height:none}
+  .btn .lbl-long{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <button class="brand" id="brand" aria-label="Trip Atlas home">
+    <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11.5" fill="#d6e4e6" stroke="#1e2a2f" stroke-width="1.5"/><path d="M5 10c3 1 4-2 7-1s2 4 5 4 3-3 5-2M6 17c2-1 4 1 6 0s3-2 5-1" fill="none" stroke="#1e2a2f" stroke-width="1.4" stroke-linecap="round"/><circle cx="17" cy="9" r="2.4" fill="#d9693a"/></svg>
+    Trip Atlas
+  </button>
+  <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
+  <div class="spacer"></div>
+  <div class="stats" id="stats" aria-live="polite"></div>
+  <button class="btn sm ghost" id="backupBtn" aria-label="Back up or restore your trips"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span class="lbl-long">Backup</span></button>
+  <a class="btn primary sm" href="#new" id="addBtn"><span aria-hidden="true">＋</span> Add<span class="lbl-long">&nbsp;trip</span></a>
+</header>
+<main class="layout" id="layout">
+  <aside class="panel" id="panel"></aside>
+  <section class="stage" id="stage" aria-label="Map"></section>
+</main>
+
+<script>
+(() => {
+'use strict';
+/* ================= helpers ================= */
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const slug = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const uid = (p='t') => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const isNarrow = () => innerWidth <= 820;
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch(e){} };
+function toast(msg, ms = 2600){ const t = document.createElement('div'); t.className='toast'; t.setAttribute('role','status'); t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), ms); }
+const ICON = {
+  search:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  pin:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+  left:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
+  right:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>',
+};
+const fmtDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'}) : '';
+function fmtRange(a, b){
+  if (!a && !b) return 'No dates';
+  if (!b || a === b) return fmtDate(a || b);
+  if (!a) return fmtDate(b);
+  const A = new Date(a+'T12:00:00'), B = new Date(b+'T12:00:00');
+  if (A.getFullYear() === B.getFullYear()){
+    const s = A.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+    const e = A.getMonth() === B.getMonth() ? B.getDate() : B.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+    return `${s} – ${e}, ${B.getFullYear()}`;
+  }
+  return `${fmtDate(a)} – ${fmtDate(b)}`;
+}
+
+/* ================= geography ================= */
+const CONTINENTS = {
+  'north-america': { name:'North America', box:[[-168,7],[-52,72]] },
+  'south-america': { name:'South America', box:[[-82,-56],[-34,13]] },
+  'europe':        { name:'Europe',        box:[[-25,34],[45,71]] },
+  'africa':        { name:'Africa',        box:[[-19,-35],[52,38]] },
+  'asia':          { name:'Asia',          box:[[26,-11],[146,56]] },
+  'oceania':       { name:'Oceania',       box:[[110,-48],[185,-1]] },
+  'antarctica':    { name:'Antarctica',    box:null },
+};
+const EXTRA_CONT = { 'Somaliland':'africa', 'Kosovo':'europe', 'N. Cyprus':'europe', 'Indian Ocean Ter.':'oceania', 'Siachen Glacier':'asia' };
+const NICE_NAME = { 'United States of America':'United States', 'Dem. Rep. Congo':'DR Congo', 'Central African Rep.':'Central African Republic', 'Dominican Rep.':'Dominican Republic', 'Bosnia and Herz.':'Bosnia and Herzegovina', 'Czechia':'Czechia', 'S. Sudan':'South Sudan', 'Eq. Guinea':'Equatorial Guinea', 'Solomon Is.':'Solomon Islands', 'Marshall Is.':'Marshall Islands', 'Falkland Is.':'Falkland Islands', 'Faeroe Is.':'Faroe Islands', 'Cayman Is.':'Cayman Islands', 'Cook Is.':'Cook Islands', 'Fr. Polynesia':'French Polynesia', 'W. Sahara':'Western Sahara', "Côte d'Ivoire":"Côte d'Ivoire", 'N. Mariana Is.':'Northern Mariana Islands', 'U.S. Virgin Is.':'U.S. Virgin Islands', 'British Virgin Is.':'British Virgin Islands', 'Turks and Caicos Is.':'Turks and Caicos', 'St. Vin. and Gren.':'St. Vincent and the Grenadines', 'Antigua and Barb.':'Antigua and Barbuda', 'São Tomé and Principe':'São Tomé and Príncipe', 'Fr. S. Antarctic Lands':'French Southern Lands', 'Heard I. and McDonald Is.':'Heard and McDonald Islands', 'S. Geo. and the Is.':'South Georgia', 'St. Pierre and Miquelon':'St. Pierre and Miquelon', 'Wallis and Futuna Is.':'Wallis and Futuna', 'Br. Indian Ocean Ter.':'British Indian Ocean Territory', 'N. Cyprus':'Northern Cyprus' };
+const G = { ready:false, countries:[], byKey:new Map(), states:[], stateById:new Map(), meta:null, cities:null, usKey:'c-840' };
+
+async function loadGeo(){
+  const [world, us, meta] = await Promise.all(['data/countries-50m.json','data/states-10m.json','data/meta.json'].map(u => fetch(u).then(r => { if(!r.ok) throw new Error(u); return r.json(); })));
+  G.meta = meta;
+  G.countries = topojson.feature(world, world.objects.countries).features.filter(f => f.geometry);
+  for (const f of G.countries){
+    const raw = f.properties.name;
+    f.key = 'c-' + (f.id ? f.id : slug(raw));
+    f.name = NICE_NAME[raw] || raw;
+    f.cont = (f.id && meta.continentByNum[f.id]) || EXTRA_CONT[raw] || 'asia';
+    f.bounds = d3.geoBounds(f);
+    G.byKey.set(f.key, f);
+  }
+  G.states = topojson.feature(us, us.objects.states).features;
+  for (const s of G.states){ s.key = 's-' + s.id; s.name = s.properties.name; s.bounds = d3.geoBounds(s); G.stateById.set(s.id, s); }
+  G.statesMesh = topojson.mesh(us, us.objects.states, (a,b) => a !== b);
+  G.nation = topojson.feature(us, us.objects.nation);
+  G.ready = true;
+}
+function inBounds(b, lon, lat){
+  const [[x0,y0],[x1,y1]] = b;
+  if (lat < y0 - .5 || lat > y1 + .5) return false;
+  if (x0 <= x1) return lon >= x0 - .5 && lon <= x1 + .5;
+  return lon >= x0 - .5 || lon <= x1 + .5; // crosses antimeridian
+}
+function findIn(list, lon, lat){
+  for (const f of list) if (inBounds(f.bounds, lon, lat) && d3.geoContains(f, [lon, lat])) return f;
+  return null;
+}
+/** Work out which country (and US state) a point is in. Nudges outward for coastal points. */
+function locate(lon, lat){
+  let c = findIn(G.countries, lon, lat);
+  if (!c){
+    outer: for (const r of [0.08, 0.2, 0.4, 0.7]) for (let a = 0; a < 360; a += 45){
+      const p = [lon + r*Math.cos(a*Math.PI/180), lat + r*Math.sin(a*Math.PI/180)];
+      c = findIn(G.countries, p[0], p[1]); if (c) break outer;
+    }
+  }
+  let s = null;
+  if (c && c.key === G.usKey){
+    s = findIn(G.states, lon, lat);
+    if (!s) outer2: for (const r of [0.08, 0.2, 0.4, 0.7]) for (let a = 0; a < 360; a += 45){
+      s = findIn(G.states, lon + r*Math.cos(a*Math.PI/180), lat + r*Math.sin(a*Math.PI/180)); if (s) break outer2;
+    }
+  }
+  return { country:c, state:s };
+}
+async function loadCities(){
+  if (G.cities) return G.cities;
+  const raw = await fetch('data/cities.json').then(r => r.json());
+  G.cities = raw.map(([n, lon, lat, cc, adm, pop]) => ({ n, lon, lat, cc, adm, pop, s: slug(n) }));
+  return G.cities;
+}
+const US_POSTAL = {AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',CT:'Connecticut',DE:'Delaware',DC:'District of Columbia',FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',PR:'Puerto Rico'};
+
+/* ================= storage =================
+   Everything lives in this browser's IndexedDB: trip records in "trips",
+   photo files (as Blobs) in "photos". Use Backup → Export to keep a copy. */
+const Store = {
+  trips:[], listeners:new Set(), loaded:false, error:null, dbp:null, urlCache:new Map(),
+  open(){
+    if (this.dbp) return this.dbp;
+    this.dbp = new Promise((res, rej) => {
+      if (!('indexedDB' in window)) return rej(new Error('This browser has no IndexedDB'));
+      const r = indexedDB.open('trip-atlas', 1);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        if (!d.objectStoreNames.contains('trips')) d.createObjectStore('trips', { keyPath:'id' });
+        if (!d.objectStoreNames.contains('photos')) d.createObjectStore('photos');
+      };
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    return this.dbp;
+  },
+  async tx(stores, mode, fn){
+    const d = await this.open();
+    return new Promise((res, rej) => {
+      const t = d.transaction(stores, mode);
+      let out;
+      const req = fn(t);
+      if (req && 'onsuccess' in req) req.onsuccess = () => { out = req.result; };
+      t.oncomplete = () => res(out);
+      t.onerror = () => rej(t.error);
+      t.onabort = () => rej(t.error || new Error('Saving was interrupted (storage may be full)'));
+    });
+  },
+  async init(){
+    try { this.trips = (await this.tx('trips', 'readonly', t => t.objectStore('trips').getAll())) || []; }
+    catch(e){ this.error = e; this.trips = []; }
+    this.loaded = true;
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
+    this.emit();
+  },
+  emit(){ for (const f of this.listeners) f(); },
+  async save(trip){
+    trip.updatedAt = Date.now();
+    const copy = JSON.parse(JSON.stringify(trip));
+    await this.tx('trips', 'readwrite', t => t.objectStore('trips').put(copy));
+    const i = this.trips.findIndex(x => x.id === copy.id);
+    if (i >= 0) this.trips[i] = copy; else this.trips.push(copy);
+    this.emit();
+  },
+  async remove(id){
+    await this.tx('trips', 'readwrite', t => t.objectStore('trips').delete(id));
+    this.trips = this.trips.filter(t => t.id !== id);
+    this.emit();
+  },
+  async uploadPhoto(file){
+    const blob = await compressImage(file, 2000, 0.86);
+    const id = uid('p');
+    await this.tx('photos', 'readwrite', t => t.objectStore('photos').put(blob, id));
+    return { id };
+  },
+  async photoSrc(p){
+    if (!p || !p.id) return '';
+    if (this.urlCache.has(p.id)) return this.urlCache.get(p.id);
+    let b = null;
+    try { b = await this.tx('photos', 'readonly', t => t.objectStore('photos').get(p.id)); } catch(e){}
+    if (!b) return '';
+    const u = URL.createObjectURL(b);
+    this.urlCache.set(p.id, u);
+    return u;
+  },
+  async deletePhoto(p){
+    if (!p || !p.id) return;
+    try { await this.tx('photos', 'readwrite', t => t.objectStore('photos').delete(p.id)); } catch(e){}
+    const u = this.urlCache.get(p.id); if (u){ URL.revokeObjectURL(u); this.urlCache.delete(p.id); }
+  },
+  /* backup: one JSON file with every trip and every photo (as data URLs) */
+  async exportAll(){
+    const photos = {};
+    for (const t of this.trips) for (const p of t.photos || []){
+      if (photos[p.id]) continue;
+      const b = await this.tx('photos', 'readonly', x => x.objectStore('photos').get(p.id));
+      if (b) photos[p.id] = await blobToDataURL(b);
+    }
+    return { app:'trip-atlas', version:1, exportedAt:new Date().toISOString(), trips:this.trips, photos };
+  },
+  async importAll(data){
+    if (!data || data.app !== 'trip-atlas' || !Array.isArray(data.trips)) throw new Error('That file isn’t a Trip Atlas backup.');
+    let n = 0;
+    for (const [id, url] of Object.entries(data.photos || {})){
+      const blob = await (await fetch(url)).blob();
+      await this.tx('photos', 'readwrite', t => t.objectStore('photos').put(blob, id));
+    }
+    for (const trip of data.trips){
+      if (!trip || typeof trip.id !== 'string' || !/^[A-Za-z0-9_-]+$/.test(trip.id)) continue;
+      await this.tx('trips', 'readwrite', t => t.objectStore('trips').put(trip)); n++;
+    }
+    this.trips = (await this.tx('trips', 'readonly', t => t.objectStore('trips').getAll())) || [];
+    this.emit();
+    return n;
+  },
+};
+function blobToDataURL(b){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(b); }); }
+async function compressImage(file, max, q){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Could not read ' + file.name + ' (try JPG or PNG)')); i.src = url; });
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth*k); c.height = Math.round(img.naturalHeight*k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise(res => c.toBlob(res, 'image/jpeg', q));
+  } finally { URL.revokeObjectURL(url); }
+}
+function setPhoto(img, p){ Store.photoSrc(p).then(src => { if (src) img.src = src; }); }
+
+/* ================= trip indexing ================= */
+const IDX = { visitedCountries:new Set(), visitedStates:new Set(), byPlace:new Map() };
+function reindex(){
+  IDX.visitedCountries = new Set(); IDX.visitedStates = new Set(); IDX.byPlace = new Map(); IDX.byCont = new Map();
+  const add = (k, t) => { if (!IDX.byPlace.has(k)) IDX.byPlace.set(k, new Set()); IDX.byPlace.get(k).add(t); };
+  for (const t of Store.trips){
+    for (const d of t.destinations || []){
+      if (d.country){ IDX.visitedCountries.add(d.country); add(d.country, t);
+        const f = G.byKey.get(d.country); if (f){ add('k-' + f.cont, t); } }
+      if (d.state){ IDX.visitedStates.add(d.state); add('s-' + d.state, t); }
+    }
+  }
+}
+const tripsAt = (k) => sortTrips([...(IDX.byPlace.get(k) || [])]);
+function sortTrips(arr){ return arr.slice().sort((a, b) => (b.startDate || '').localeCompare(a.startDate || '') || (b.updatedAt || 0) - (a.updatedAt || 0)); }
+function tripPlaces(t){
+  const names = [];
+  for (const d of t.destinations || []){ const n = d.stateName ? d.stateName : d.countryName; if (n && !names.includes(n)) names.push(n); }
+  return names;
+}
+function routeText(t){ return (t.destinations || []).map(d => d.name).join(' → '); }
+
+/* ================= routing ================= */
+let cleanup = [];
+function runCleanup(){ cleanup.forEach(f => { try{f();}catch(e){} }); cleanup = []; }
+function parseRoute(){
+  const h = location.hash.replace(/^#/, '');
+  let m;
+  if (!h || h === 'world') return { view:'world' };
+  if ((m = h.match(/^continent-(.+)$/)) && CONTINENTS[m[1]]) return { view:'continent', id:m[1] };
+  if ((m = h.match(/^country-(.+)$/))) return { view:'place', kind:'country', id:'c-' + m[1] };
+  if ((m = h.match(/^state-(\d+)$/))) return { view:'place', kind:'state', id:m[1] };
+  if ((m = h.match(/^trip-([A-Za-z0-9_-]+)$/))) return { view:'trip', id:m[1] };
+  if (h === 'new') return { view:'form' };
+  if ((m = h.match(/^edit-([A-Za-z0-9_-]+)$/))) return { view:'form', id:m[1] };
+  return { view:'world' };
+}
+const go = (h) => { if (location.hash === '#' + h) render(); else location.hash = h; };
+let lastRouteKey = '';
+let formDirty = false;
+function render(force){
+  const r = parseRoute();
+  const key = JSON.stringify(r);
+  // Don't blow away a form someone is filling in when trips update in the background.
+  if (!force && key === lastRouteKey && r.view === 'form') return;
+  if (key !== lastRouteKey) window.scrollTo(0, 0);
+  lastRouteKey = key;
+  runCleanup();
+  updateStats();
+  const layout = $('#layout'), panel = $('#panel'), stage = $('#stage');
+  layout.classList.toggle('page-mode', r.view === 'trip' || r.view === 'form');
+  panel.style.display = (r.view === 'trip' || r.view === 'form') ? 'none' : '';
+  stage.className = 'stage';
+  stage.classList.toggle('full', r.view === 'trip' || r.view === 'form');
+  stage.removeAttribute('aria-label');
+  stage.innerHTML = ''; panel.innerHTML = '';
+  if (!G.ready){ stage.innerHTML = '<div class="loading">Loading the map…</div>'; return; }
+  if (r.view === 'world') return viewWorld(panel, stage);
+  if (r.view === 'continent') return viewContinent(r.id, panel, stage);
+  if (r.view === 'place') return viewPlace(r.kind, r.id, panel, stage);
+  if (r.view === 'trip') return viewTrip(r.id, stage);
+  if (r.view === 'form') return viewForm(r.id, stage);
+}
+function setCrumbs(items){
+  const el = $('#crumbs');
+  el.innerHTML = items.map((it, i) => {
+    const last = i === items.length - 1;
+    return (i ? '<span class="sep" aria-hidden="true">›</span>' : '') + (last || !it.h ? `<span class="cur" ${last ? 'aria-current="page"' : ''}>${esc(it.t)}</span>` : `<a href="#${it.h}">${esc(it.t)}</a>`);
+  }).join('');
+}
+function updateStats(){
+  const el = $('#stats');
+  const nC = IDX.visitedCountries.size, nS = IDX.visitedStates.size, nT = Store.trips.length;
+  el.innerHTML = `<span><b>${nT}</b> trip${nT===1?'':'s'}</span><span><b>${nC}</b> countr${nC===1?'y':'ies'}</span>${nS ? `<span><b>${nS}</b> US state${nS===1?'':'s'}</span>` : ''}`;
+}
+function placeHash(d){ return d.state ? 'state-' + d.state : 'country-' + d.country.slice(2); }
+
+/* ================= shared panel bits ================= */
+function tripItemHTML(t){
+  const cover = (t.photos || [])[0];
+  const n = (t.destinations || []).length;
+  const places = tripPlaces(t);
+  return `<li><button class="tripitem" data-trip="${esc(t.id)}">
+    <span class="thumb" data-cover="${cover ? '1' : ''}">${cover ? '<img alt="">' : ICON.pin}</span>
+    <span class="tripmeta"><span class="t">${esc(t.title || 'Untitled trip')}</span>
+      <span class="d">${esc(fmtRange(t.startDate, t.endDate))}${n > 1 ? `<span class="tag">${n} stops</span>` : ''}</span>
+      <span class="r">${esc(n > 1 ? routeText(t) : (t.destinations?.[0]?.name || ''))}${places.length ? ' · ' + esc(places.join(', ')) : ''}</span></span>
+  </button></li>`;
+}
+function wireTripList(ul, trips, hooks = {}){
+  ul.querySelectorAll('.tripitem').forEach((b, i) => {
+    const t = trips[i];
+    const img = b.querySelector('img'); if (img) setPhoto(img, t.photos[0]);
+    b.addEventListener('click', () => go('trip-' + t.id));
+    if (hooks.enter){ b.addEventListener('mouseenter', () => hooks.enter(t)); b.addEventListener('focus', () => hooks.enter(t)); }
+    if (hooks.leave){ b.addEventListener('mouseleave', () => hooks.leave(t)); b.addEventListener('blur', () => hooks.leave(t)); }
+  });
+}
+function statusBanner(){
+  if (Store.error) return `<div class="banner">This browser won’t let Trip Atlas save data (private browsing can do this). Trips you add may not be kept.</div>`;
+  const last = +(lsGet('tripatlas.lastBackup') || 0);
+  if (Store.trips.length && Date.now() - last > 30 * 864e5) return `<div class="banner">Your trips live only in this browser. <a href="#" data-backup>Back them up</a> now and then so you never lose them.</div>`;
+  return '';
+}
+function emptyState(){
+  return `<div class="empty">No trips yet. Add your first one and the map starts filling in.<br>
+    <a class="btn primary sm" href="#new">＋ Add a trip</a> <button class="btn sm" id="sampleBtn">Try sample trips</button></div>`;
+}
+function wireSample(panel){
+  const b = $('#sampleBtn', panel); if (!b) return;
+  b.addEventListener('click', async () => {
+    b.disabled = true;
+    const mk = (name, lon, lat) => { const l = locate(lon, lat); return { id:uid('d'), name, lon, lat, country:l.country?.key || null, countryName:l.country?.name || '', state:l.state?.id || null, stateName:l.state?.name || '' }; };
+    const samples = [
+      { title:'Zion National Park', startDate:'2025-05-16', endDate:'2025-05-19', notes:'Sample trip — edit or delete me.\nAngels Landing at sunrise, the Narrows in the afternoon.', friends:['Sam'], destinations:[mk('Zion National Park', -113.026, 37.298)] },
+      { title:'Salt Lake City weekend', startDate:'2024-10-04', endDate:'2024-10-06', notes:'Sample trip — edit or delete me.', friends:[], destinations:[mk('Salt Lake City', -111.891, 40.761)] },
+      { title:'Austria by train', startDate:'2025-08-02', endDate:'2025-08-10', notes:'Sample trip with two stops — edit or delete me.', friends:['Sam','Priya'], destinations:[mk('Vienna', 16.373, 48.208), mk('Salzburg', 13.055, 47.81)] },
+    ];
+    try { for (const s of samples) await Store.save({ id:uid(), createdAt:Date.now(), photos:[], ...s }); toast('Added 3 sample trips'); }
+    catch(e){ toast('Could not add samples'); b.disabled = false; }
+  });
+}
+
+/* ================= WORLD VIEW (globe) ================= */
+let globeRot = [-10, -25, 0], globeK = 1;
+function viewWorld(panel, stage){
+  setCrumbs([{ t:'World' }]);
+  stage.classList.add('globe-bg');
+  stage.setAttribute('aria-label', 'Globe of visited countries');
+  // ---- left panel: recent trips + search
+  panel.innerHTML = `${statusBanner()}<h2>Recent trips</h2><p class="sub">Search and pick a trip, or spin the globe and tap a continent.</p>
+    <div class="search">${ICON.search}<label class="sr-only" for="q">Search trips</label><input id="q" type="search" placeholder="Search trips, places, friends…" autocomplete="off"></div>
+    <div id="listWrap"></div>
+    <h3>Continents</h3><div class="chips" id="contChips"></div>`;
+  const q = $('#q', panel);
+  q.value = viewWorld.q || '';
+  const drawList = () => {
+    viewWorld.q = q.value;
+    const term = slug(q.value);
+    const all = sortTrips(Store.trips);
+    const list = term ? all.filter(t => slug([t.title, t.notes, (t.friends||[]).join(' '), (t.destinations||[]).map(d => [d.name, d.countryName, d.stateName].join(' ')).join(' ')].join(' ')).includes(term)) : all;
+    const wrap = $('#listWrap', panel);
+    if (!Store.trips.length){ wrap.innerHTML = Store.loaded ? emptyState() : '<p class="sub">Loading trips…</p>'; wireSample(panel); return; }
+    if (!list.length){ wrap.innerHTML = `<div class="empty">No trips match “${esc(q.value)}”.</div>`; return; }
+    wrap.innerHTML = `<ul class="triplist">${list.map(tripItemHTML).join('')}</ul>`;
+    wireTripList($('ul', wrap), list, { enter:t => globe.focusTrip(t), leave:() => globe.focusTrip(null) });
+  };
+  q.addEventListener('input', debounce(drawList, 120));
+  $('#contChips', panel).innerHTML = Object.entries(CONTINENTS).filter(([k]) => k !== 'antarctica').map(([k, c]) => {
+    const n = tripsAt('k-' + k).length;
+    return `<a class="chip ${n ? '' : 'off'}" href="#continent-${k}"><span class="dot"></span>${esc(c.name)}${n ? ` · ${n}` : ''}</a>`;
+  }).join('');
+
+  // ---- globe
+  const globe = makeGlobe(stage);
+  drawList();
+}
+function makeGlobe(stage){
+  const W = stage.clientWidth, H = stage.clientHeight;
+  const base = Math.min(W, H) / 2 * 0.86;
+  const proj = d3.geoOrthographic().translate([W/2, H/2]).scale(base * globeK).rotate(globeRot).clipAngle(90).precision(0.6);
+  const path = d3.geoPath(proj);
+  const svg = d3.select(stage).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Interactive globe. Visited countries are filled in orange.');
+  const defs = svg.append('defs');
+  const gr = defs.append('radialGradient').attr('id', 'oceanGrad').attr('cx', '40%').attr('cy', '35%');
+  gr.append('stop').attr('offset', '0%').attr('stop-color', '#e6f0f1');
+  gr.append('stop').attr('offset', '100%').attr('stop-color', '#bcd2d6');
+  const sphere = svg.append('path').datum({ type:'Sphere' }).attr('class', 'sphere');
+  const grat = svg.append('path').datum(d3.geoGraticule10()).attr('class', 'grat');
+  const gC = svg.append('g');
+  const cp = gC.selectAll('path').data(G.countries).join('path')
+    .attr('class', d => 'country clickable' + (IDX.visitedCountries.has(d.key) && d.key !== G.usKey ? ' visited' : ''))
+    .attr('data-cont', d => d.cont);
+  const statesP = svg.append('path').datum(G.statesMesh).attr('class', 'state').style('pointer-events', 'none');
+  const visitedStatesP = svg.append('g').style('pointer-events', 'none').selectAll('path').data(G.states.filter(s => IDX.visitedStates.has(s.id))).join('path').attr('class', 'state visited');
+  const dests = Store.trips.flatMap(t => (t.destinations || []).map(d => ({ t, d })));
+  const gRoutes = svg.append('g');
+  const routes = gRoutes.selectAll('path').data(Store.trips.filter(t => (t.destinations||[]).length > 1)).join('path').attr('class', 'route')
+    .datum(t => ({ t, geo:{ type:'LineString', coordinates:t.destinations.map(d => [d.lon, d.lat]) } }));
+  const gPins = svg.append('g');
+  const pins = gPins.selectAll('g').data(dests).join('g').attr('class', 'pin');
+  pins.append('circle').attr('r', 5);
+  const tip = d3.select(stage).append('div').attr('class', 'tip');
+  d3.select(stage).append('div').attr('class', 'legend').html('<span><i style="background:var(--visited-2)"></i>Visited</span><span><i style="background:var(--accent);border-radius:50%"></i>Trip stop</span>');
+  d3.select(stage).append('div').attr('class', 'maphint').text(matchMedia('(pointer:coarse)').matches ? 'Drag to spin · pinch to zoom · tap a continent' : 'Drag to spin · scroll to zoom · click a continent');
+
+  function redraw(){
+    sphere.attr('d', path); grat.attr('d', path); cp.attr('d', path); statesP.attr('d', path); visitedStatesP.attr('d', path);
+    routes.attr('d', r => path(r.geo));
+    const r = proj.rotate(), center = [-r[0], -r[1]];
+    pins.attr('display', p => d3.geoDistance([p.d.lon, p.d.lat], center) < Math.PI/2 - 0.02 ? null : 'none')
+        .attr('transform', p => { const xy = proj([p.d.lon, p.d.lat]); return xy ? `translate(${xy})` : null; });
+  }
+  redraw();
+
+  // hover / click continents
+  const showTip = (ev, html) => { const [x, y] = d3.pointer(ev, stage); tip.html(html).style('left', x + 'px').style('top', y + 'px').classed('on', true); };
+  cp.on('mousemove', (ev, d) => {
+    cp.classed('hl', c => c.cont === d.cont);
+    showTip(ev, `<b>${esc(CONTINENTS[d.cont].name)}</b> · ${esc(d.name)}`);
+  }).on('mouseleave', () => { cp.classed('hl', false); tip.classed('on', false); })
+    .on('click', (ev, d) => go('continent-' + d.cont));
+  pins.on('mousemove', (ev, p) => showTip(ev, `<b>${esc(p.t.title)}</b> · ${esc(p.d.name)}`))
+      .on('mouseleave', () => tip.classed('on', false))
+      .on('click', (ev, p) => { ev.stopPropagation(); go('trip-' + p.t.id); });
+
+  // drag-to-rotate + zoom
+  let last = null, spinning = false, timer = null;
+  const zoom = d3.zoom().scaleExtent([0.6, 8]).clickDistance(6)
+    .on('start', () => { spinning = false; })
+    .on('zoom', (ev) => {
+      const t = ev.transform, se = ev.sourceEvent;
+      globeK = t.k; proj.scale(base * t.k);
+      const multi = se && se.touches && se.touches.length > 1;
+      if (last && se && se.type !== 'wheel' && !multi){
+        const s = 0.28 / t.k, r = proj.rotate();
+        proj.rotate([r[0] + (t.x - last.x) * s, Math.max(-85, Math.min(85, r[1] - (t.y - last.y) * s)), r[2]]);
+      }
+      last = { x:t.x, y:t.y }; globeRot = proj.rotate(); redraw();
+    });
+  const svgNode = svg.node();
+  svg.call(zoom).call(zoom.transform, d3.zoomIdentity.scale(globeK));
+  last = { x:0, y:0 };
+  svg.on('dblclick.zoom', null);
+  spinning = !reduceMotion;
+  if (spinning){
+    let prev = 0;
+    timer = d3.timer((el) => { if (!spinning) return; const dt = el - prev; prev = el; const r = proj.rotate(); proj.rotate([r[0] + dt * 0.006, r[1], r[2]]); globeRot = proj.rotate(); redraw(); });
+  }
+  // controls
+  const ctl = d3.select(stage).append('div').attr('class', 'mapctl');
+  ctl.append('button').attr('class', 'btn iconbtn').attr('aria-label', 'Zoom in').text('+').on('click', () => svg.transition().duration(250).call(zoom.scaleBy, 1.5));
+  ctl.append('button').attr('class', 'btn iconbtn').attr('aria-label', 'Zoom out').text('−').on('click', () => svg.transition().duration(250).call(zoom.scaleBy, 1/1.5));
+
+  // fly-to for hovered trips in the list
+  let flyT = null;
+  function focusTrip(t){
+    pins.classed('hot', p => t && p.t === t); routes.classed('hot', r => t && r.t === t);
+    if (!t || !(t.destinations||[]).length) return;
+    spinning = false;
+    const target = d3.geoCentroid({ type:'MultiPoint', coordinates:t.destinations.map(d => [d.lon, d.lat]) });
+    const from = proj.rotate(), to = [-target[0], -target[1], 0];
+    const interp = d3.interpolate(from, to);
+    if (flyT) flyT.stop();
+    if (reduceMotion){ proj.rotate(to); globeRot = to; redraw(); return; }
+    flyT = d3.timer(el => { const k = Math.min(1, el / 650); proj.rotate(interp(d3.easeCubicOut(k))); globeRot = proj.rotate(); redraw(); if (k >= 1) flyT.stop(); });
+  }
+  cleanup.push(() => { if (timer) timer.stop(); if (flyT) flyT.stop(); svg.on('.zoom', null); });
+  return { focusTrip, svgNode };
+}
+
+/* ================= flat maps (continent + place) ================= */
+function makeFlatMap(stage, proj, opts = {}){
+  const W = stage.clientWidth, H = stage.clientHeight;
+  const path = d3.geoPath(proj);
+  const svg = d3.select(stage).append('svg').attr('viewBox', `0 0 ${W} ${H}`);
+  const g = svg.append('g');
+  const tip = d3.select(stage).append('div').attr('class', 'tip');
+  const showTip = (ev, html) => { const [x, y] = d3.pointer(ev, stage); tip.html(html).style('left', x + 'px').style('top', y + 'px').classed('on', true); };
+  const hideTip = () => tip.classed('on', false);
+  let k = 1;
+  const listeners = [];
+  const zoom = d3.zoom().scaleExtent([1, opts.maxZoom || 24]).clickDistance(6)
+    .translateExtent([[-W*0.5, -H*0.5], [W*1.5, H*1.5]])
+    .on('zoom', ev => { k = ev.transform.k; g.attr('transform', ev.transform); listeners.forEach(f => f(k)); hideTip(); });
+  svg.call(zoom).on('dblclick.zoom', null);
+  const ctl = d3.select(stage).append('div').attr('class', 'mapctl');
+  ctl.append('button').attr('class', 'btn iconbtn').attr('aria-label', 'Zoom in').text('+').on('click', () => svg.transition().duration(250).call(zoom.scaleBy, 1.6));
+  ctl.append('button').attr('class', 'btn iconbtn').attr('aria-label', 'Zoom out').text('−').on('click', () => svg.transition().duration(250).call(zoom.scaleBy, 1/1.6));
+  ctl.append('button').attr('class', 'btn iconbtn').attr('aria-label', 'Reset view').html('⟲').on('click', () => svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity));
+  cleanup.push(() => svg.on('.zoom', null));
+  return { svg, g, path, proj, W, H, showTip, hideTip, onZoom:f => listeners.push(f), zoom, getK:() => k };
+}
+/** Pins + labels + dashed routes for a set of trips, limited to destinations that pass `keep`. */
+function drawPins(map, trips, keep, opts = {}){
+  const { g, proj } = map;
+  const gR = g.append('g'), gP = g.append('g');
+  const lines = trips.map(t => ({ t, pts:(t.destinations||[]).filter(keep) })).filter(x => x.pts.length > 1);
+  const routes = gR.selectAll('path').data(lines).join('path').attr('class', 'route')
+    .attr('d', x => map.path({ type:'LineString', coordinates:x.pts.map(d => [d.lon, d.lat]) }));
+  const items = trips.flatMap(t => (t.destinations||[]).filter(keep).map((d, i) => ({ t, d, i })));
+  const pins = gP.selectAll('g').data(items).join('g').attr('class', 'pin')
+    .attr('transform', p => { const xy = proj([p.d.lon, p.d.lat]); return xy ? `translate(${xy})` : 'translate(-999,-999)'; });
+  pins.append('circle').attr('r', opts.r || 7).attr('tabindex', 0).attr('role', 'link').attr('aria-label', p => `${p.t.title}: ${p.d.name}`);
+  if (opts.labels){
+    pins.append('text').attr('y', 4).text(p => opts.labelFn ? opts.labelFn(p) : p.t.title)
+      .each(function(p){ const xy = proj([p.d.lon, p.d.lat]) || [0,0]; const left = xy[0] + 11 + this.getComputedTextLength() > map.W - 60; d3.select(this).attr('x', left ? -11 : 11).attr('text-anchor', left ? 'end' : 'start'); });
+  }
+  pins.on('mousemove', (ev, p) => map.showTip(ev, `<b>${esc(p.t.title)}</b> · ${esc(p.d.name)}`))
+      .on('mouseleave', map.hideTip)
+      .on('click', (ev, p) => { ev.stopPropagation(); go('trip-' + p.t.id); })
+      .on('keydown', (ev, p) => { if (ev.key === 'Enter') go('trip-' + p.t.id); });
+  map.onZoom(k => {
+    pins.attr('transform', p => { const xy = proj([p.d.lon, p.d.lat]); return xy ? `translate(${xy}) scale(${1/k})` : null; });
+  });
+  return { highlight(t){ pins.classed('hot', p => t && p.t === t); routes.classed('hot', x => t && x.t === t); if (t) pins.filter(p => p.t === t).raise(); } };
+}
+function placeListPanel(panel, title, sub, trips, pinApi, extra = ''){
+  panel.innerHTML = `${statusBanner()}<h2>${esc(title)}</h2><p class="sub">${esc(sub)}</p>${extra}<h3>Trips here</h3><div id="listWrap"></div>`;
+  const wrap = $('#listWrap', panel);
+  if (!trips.length){ wrap.innerHTML = `<div class="empty">No trips here yet.<br><a class="btn primary sm" href="#new">＋ Add a trip</a></div>`; return; }
+  wrap.innerHTML = `<ul class="triplist">${trips.map(tripItemHTML).join('')}</ul>`;
+  wireTripList($('ul', wrap), trips, pinApi ? { enter:t => pinApi.highlight(t), leave:() => pinApi.highlight(null) } : {});
+}
+
+/* ---------- continent view ---------- */
+function viewContinent(id, panel, stage){
+  const C = CONTINENTS[id];
+  setCrumbs([{ t:'World', h:'world' }, { t:C.name }]);
+  stage.setAttribute('aria-label', `Map of ${C.name}`);
+  let proj;
+  const W = stage.clientWidth, H = stage.clientHeight, pad = 18;
+  if (id === 'antarctica'){
+    proj = d3.geoAzimuthalEqualArea().rotate([0, 90]).fitExtent([[pad,pad],[W-pad,H-pad]], G.countries.find(f => f.cont === 'antarctica') || { type:'Sphere' });
+  } else {
+    const [[x0,y0],[x1,y1]] = C.box; const cx = (x0 + x1) / 2;
+    proj = d3.geoMercator().rotate([-cx, 0]).fitExtent([[pad,pad],[W-pad,H-pad]], { type:'MultiPoint', coordinates:[[x0,y0],[x1,y1],[x0,y1],[x1,y0]] });
+  }
+  const map = makeFlatMap(stage, proj);
+  const inC = f => f.cont === id;
+  const isUS = f => f.key === G.usKey;
+  map.g.append('g').selectAll('path').data(G.countries).join('path')
+    .attr('d', map.path)
+    .attr('class', f => 'country' + (inC(f) ? (isUS(f) ? '' : ' clickable') : ' muted') + (IDX.visitedCountries.has(f.key) && !isUS(f) ? ' visited' : ''))
+    .on('mousemove', function(ev, f){ if (!inC(f) || isUS(f)) return; d3.select(this).classed('hl', true); const n = tripsAt(f.key).length; map.showTip(ev, `<b>${esc(f.name)}</b>${n ? ` · ${n} trip${n>1?'s':''}` : ''}`); })
+    .on('mouseleave', function(){ d3.select(this).classed('hl', false); map.hideTip(); })
+    .on('click', (ev, f) => { if (inC(f) && !isUS(f)) go('country-' + f.key.slice(2)); });
+  if (id === 'north-america'){
+    map.g.append('g').selectAll('path').data(G.states).join('path').attr('d', map.path)
+      .attr('class', s => 'state clickable' + (IDX.visitedStates.has(s.id) ? ' visited' : ''))
+      .on('mousemove', (ev, s) => { const n = tripsAt('s-' + s.id).length; map.showTip(ev, `<b>${esc(s.name)}</b>${n ? ` · ${n} trip${n>1?'s':''}` : ''}`); })
+      .on('mouseleave', map.hideTip)
+      .on('click', (ev, s) => go('state-' + s.id));
+  }
+  const trips = tripsAt('k-' + id);
+  const pinApi = drawPins(map, trips, d => { const f = G.byKey.get(d.country); return f && f.cont === id; }, { r:5 });
+  d3.select(stage).append('div').attr('class', 'maphint').text(id === 'north-america' ? 'Tap a country or US state' : 'Tap a country to see its trips');
+  // panel: visited places + find a place + trips
+  const visited = G.countries.filter(f => inC(f) && IDX.visitedCountries.has(f.key)).sort((a,b) => a.name.localeCompare(b.name));
+  const visitedStates = id === 'north-america' ? G.states.filter(s => IDX.visitedStates.has(s.id)).sort((a,b) => a.name.localeCompare(b.name)) : [];
+  const chips = [...visited.map(f => isUS(f) ? `<a class="chip" href="#country-840"><span class="dot"></span>United States</a>` : `<a class="chip" href="#country-${f.key.slice(2)}"><span class="dot"></span>${esc(f.name)} · ${tripsAt(f.key).length}</a>`),
+                 ...visitedStates.map(s => `<a class="chip" href="#state-${s.id}"><span class="dot"></span>${esc(s.name)} · ${tripsAt('s-' + s.id).length}</a>`)].join('');
+  const placeOpts = [...G.countries.filter(inC).map(f => ({ n:f.name, h:'country-' + f.key.slice(2) })), ...(id === 'north-america' ? G.states.map(s => ({ n:s.name + ' (US)', h:'state-' + s.id })) : [])].sort((a,b) => a.n.localeCompare(b.n));
+  const extra = `${chips ? `<h3>Places you've been</h3><div class="chips">${chips}</div>` : ''}
+    <h3>Jump to a place</h3><div class="search">${ICON.search}<label class="sr-only" for="jump">Find a country${id==='north-america'?' or state':''}</label><input id="jump" type="search" list="jumpList" placeholder="Find a country${id==='north-america'?' or state':''}…"><datalist id="jumpList">${placeOpts.map(o => `<option value="${esc(o.n)}">`).join('')}</datalist></div>`;
+  const nC = visited.length;
+  placeListPanel(panel, C.name, `${nC} of ${G.countries.filter(inC).length} countries visited`, trips, pinApi, extra);
+  const jump = $('#jump', panel);
+  jump.addEventListener('change', () => { const o = placeOpts.find(o => o.n.toLowerCase() === jump.value.trim().toLowerCase()); if (o) go(o.h); });
+}
+
+/* ---------- state / country view ---------- */
+function mainGeometry(f){
+  if (f.geometry.type !== 'MultiPolygon') return f;
+  const parts = f.geometry.coordinates.map(c => ({ c, a:d3.geoArea({ type:'Polygon', coordinates:c }) }));
+  const max = d3.max(parts, p => p.a);
+  return { type:'Feature', geometry:{ type:'MultiPolygon', coordinates:parts.filter(p => p.a >= max * 0.2).map(p => p.c) } };
+}
+function viewPlace(kind, id, panel, stage){
+  const W = stage.clientWidth, H = stage.clientHeight;
+  const pad = isNarrow() ? 30 : 50;
+  if (kind === 'country' && id === G.usKey) return viewUSA(panel, stage);
+  const f = kind === 'country' ? G.byKey.get(id) : G.stateById.get(id);
+  if (!f){ stage.innerHTML = '<div class="loading">That place wasn’t found.</div>'; setCrumbs([{ t:'World', h:'world' }, { t:'Not found' }]); return; }
+  const cont = kind === 'country' ? f.cont : 'north-america';
+  const crumbs = [{ t:'World', h:'world' }, { t:CONTINENTS[cont].name, h:'continent-' + cont }];
+  if (kind === 'state') crumbs.push({ t:'United States', h:'country-840' });
+  crumbs.push({ t:f.name });
+  setCrumbs(crumbs);
+  stage.setAttribute('aria-label', `Map of ${f.name}`);
+  const placeKey = kind === 'country' ? f.key : 's-' + f.id;
+  const trips = tripsAt(placeKey);
+  const keep = d => kind === 'country' ? d.country === f.key : d.state === f.id;
+  const pts = trips.flatMap(t => (t.destinations||[]).filter(keep).map(d => [d.lon, d.lat]));
+  const fitTo = { type:'FeatureCollection', features:[mainGeometry(f), ...(pts.length ? [{ type:'Feature', geometry:{ type:'MultiPoint', coordinates:pts } }] : [])] };
+  const c = d3.geoCentroid(mainGeometry(f));
+  const proj = d3.geoMercator().rotate([-c[0], 0]).fitExtent([[pad, pad], [W - pad - (isNarrow() ? 0 : 40), H - pad]], fitTo);
+  const map = makeFlatMap(stage, proj, { maxZoom:40 });
+  // context
+  map.g.append('g').selectAll('path').data(G.countries).join('path').attr('d', map.path)
+    .attr('class', d => 'country' + (d === f ? ' focus' : ' muted') + (IDX.visitedCountries.has(d.key) && d.key !== G.usKey ? ' visited' : ''))
+    .filter(d => d !== f && d.key !== G.usKey).classed('clickable', true)
+    .on('mousemove', (ev, d) => map.showTip(ev, esc(d.name))).on('mouseleave', map.hideTip)
+    .on('click', (ev, d) => go('country-' + d.key.slice(2)));
+  if (kind === 'state' || f.key === 'c-124' || f.key === 'c-484'){
+    map.g.append('g').selectAll('path').data(G.states).join('path').attr('d', map.path)
+      .attr('class', s => 'state' + (kind === 'state' && s === f ? '' : ' clickable') + (IDX.visitedStates.has(s.id) ? ' visited' : ''))
+      .style('fill', s => kind === 'state' && s === f ? (IDX.visitedStates.has(s.id) ? 'var(--visited-2)' : '#e1d6bf') : null)
+      .style('stroke', s => kind === 'state' && s === f ? 'var(--ink)' : null).style('stroke-width', s => kind === 'state' && s === f ? '1.4px' : null)
+      .on('mousemove', (ev, s) => map.showTip(ev, esc(s.name))).on('mouseleave', map.hideTip)
+      .on('click', (ev, s) => { if (!(kind === 'state' && s === f)) go('state-' + s.id); });
+  }
+  const pinApi = drawPins(map, trips, keep, { labels:true, labelFn:p => {
+    const multi = (p.t.destinations||[]).filter(keep).length > 1;
+    return multi ? `${p.d.name} · ${p.t.title}` : p.t.title;
+  } });
+  d3.select(stage).append('div').attr('class', 'maphint').text(trips.length ? 'Tap a pin to open the trip' : 'No trips here yet');
+  const nStops = pts.length;
+  placeListPanel(panel, f.name, trips.length ? `${trips.length} trip${trips.length>1?'s':''} · ${nStops} stop${nStops>1?'s':''}` : 'Not visited yet', trips, pinApi);
+}
+function viewUSA(panel, stage){
+  setCrumbs([{ t:'World', h:'world' }, { t:'North America', h:'continent-north-america' }, { t:'United States' }]);
+  const W = stage.clientWidth, H = stage.clientHeight, pad = 20;
+  const proj = d3.geoAlbersUsa().fitExtent([[pad, pad], [W - pad - (isNarrow() ? 0 : 50), H - pad]], G.nation);
+  const map = makeFlatMap(stage, proj);
+  stage.style.background = 'var(--paper-2)';
+  map.g.append('g').selectAll('path').data(G.states).join('path').attr('d', map.path)
+    .attr('class', s => 'state clickable' + (IDX.visitedStates.has(s.id) ? ' visited' : ''))
+    .on('mousemove', (ev, s) => { const n = tripsAt('s-' + s.id).length; map.showTip(ev, `<b>${esc(s.name)}</b>${n ? ` · ${n} trip${n>1?'s':''}` : ''}`); })
+    .on('mouseleave', map.hideTip).on('click', (ev, s) => go('state-' + s.id));
+  const trips = tripsAt(G.usKey);
+  const pinApi = drawPins(map, trips, d => d.country === G.usKey && proj([d.lon, d.lat]), { r:5 });
+  d3.select(stage).append('div').attr('class', 'maphint').text('Tap a state');
+  const vs = G.states.filter(s => IDX.visitedStates.has(s.id)).sort((a,b) => a.name.localeCompare(b.name));
+  const extra = vs.length ? `<h3>States you've been</h3><div class="chips">${vs.map(s => `<a class="chip" href="#state-${s.id}"><span class="dot"></span>${esc(s.name)} · ${tripsAt('s-' + s.id).length}</a>`).join('')}</div>` : '';
+  placeListPanel(panel, 'United States', `${vs.length} of 50 states visited`, trips, pinApi, extra);
+}
+
+/* ================= TRIP VIEW ================= */
+function viewTrip(id, stage){
+  const t = Store.trips.find(x => x.id === id);
+  if (!t){
+    setCrumbs([{ t:'World', h:'world' }, { t:'Trip' }]);
+    stage.innerHTML = `<div class="page"><div class="empty">${Store.loaded ? 'This trip doesn’t exist anymore.' : 'Loading trip…'}<br><a class="btn sm" href="#world">Back to the globe</a></div></div>`;
+    return;
+  }
+  const d0 = (t.destinations || [])[0];
+  const crumbs = [{ t:'World', h:'world' }];
+  if (d0){ const f = G.byKey.get(d0.country); if (f){ crumbs.push({ t:CONTINENTS[f.cont].name, h:'continent-' + f.cont }); crumbs.push({ t:d0.stateName || f.name, h:placeHash(d0) }); } }
+  crumbs.push({ t:t.title || 'Trip' });
+  setCrumbs(crumbs);
+  const photos = t.photos || [];
+  stage.innerHTML = `<div class="page">
+    <div class="pagehead"><h1>${esc(t.title || 'Untitled trip')}</h1>
+      <a class="btn" href="#edit-${esc(t.id)}">Edit trip</a></div>
+    <article class="tripcard">
+      <div class="gallery" aria-roledescription="carousel" aria-label="Pictures">
+        ${photos.length ? `<div class="frame"><img alt=""><button class="nav prev" aria-label="Previous picture">${ICON.left}</button><button class="nav next" aria-label="Next picture">${ICON.right}</button></div>
+          <div class="bar"><span class="count" aria-live="polite"></span><div class="dots" role="tablist">${photos.map((p, i) => `<button role="tab" aria-label="Picture ${i+1}"></button>`).join('')}</div><span class="cap"></span></div>`
+        : `<div class="frame"><div class="none">No pictures yet.<br><br><a class="btn sm" href="#edit-${esc(t.id)}">Add pictures</a></div></div>`}
+      </div>
+      <div class="tripinfo">
+        <div><div class="lbl">Dates</div><div class="dates">${esc(fmtRange(t.startDate, t.endDate))}</div></div>
+        <div><div class="lbl">${(t.destinations||[]).length > 1 ? 'Route' : 'Where'}</div><div class="chips">${(t.destinations||[]).map((d, i) => `<a class="chip" href="#${placeHash(d)}" title="${esc([d.stateName, d.countryName].filter(Boolean).join(', '))}"><span class="dot"></span>${(t.destinations.length > 1 ? (i+1) + '. ' : '') + esc(d.name)}</a>`).join('') || '<span class="sub">No places</span>'}</div></div>
+        ${(t.friends||[]).length ? `<div><div class="lbl">With</div><div class="chips">${t.friends.map(f => `<span class="chip" style="cursor:default">${esc(f)}</span>`).join('')}</div></div>` : ''}
+        <div><div class="lbl">Notes</div><div class="notes">${t.notes ? esc(t.notes) : '<span class="sub">No notes.</span>'}</div></div>
+      </div>
+    </article></div>`;
+  if (!photos.length) return;
+  // carousel
+  let i = 0;
+  const img = $('.frame img', stage), dots = [...stage.querySelectorAll('.dots button')];
+  const show = (n) => {
+    i = (n + photos.length) % photos.length;
+    img.removeAttribute('src'); setPhoto(img, photos[i]);
+    img.alt = photos[i].caption || `Picture ${i+1} of ${t.title}`;
+    $('.count', stage).textContent = `${i+1} / ${photos.length}`;
+    $('.cap', stage).textContent = photos[i].caption || '';
+    dots.forEach((d, k) => { d.classList.toggle('on', k === i); d.setAttribute('aria-selected', k === i); });
+    // warm the next image
+    if (photos.length > 1) Store.photoSrc(photos[(i+1) % photos.length]).then(s => { if (s) { const pre = new Image(); pre.src = s; } });
+  };
+  $('.prev', stage).addEventListener('click', () => show(i - 1));
+  $('.next', stage).addEventListener('click', () => show(i + 1));
+  if (photos.length < 2) stage.querySelectorAll('.gallery .nav').forEach(b => b.style.display = 'none');
+  dots.forEach((d, k) => d.addEventListener('click', () => show(k)));
+  const onKey = (e) => { if ($('.lightbox')) { if (e.key === 'Escape') $('.lightbox').remove(); } if (e.target.closest('input,textarea')) return; if (e.key === 'ArrowLeft') show(i - 1); if (e.key === 'ArrowRight') show(i + 1); };
+  document.addEventListener('keydown', onKey); cleanup.push(() => document.removeEventListener('keydown', onKey));
+  // swipe
+  let sx = null;
+  const frame = $('.frame', stage);
+  frame.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive:true });
+  frame.addEventListener('touchend', e => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) show(i + (dx < 0 ? 1 : -1)); sx = null; });
+  img.addEventListener('click', () => {
+    const lb = document.createElement('div'); lb.className = 'lightbox'; lb.setAttribute('role', 'dialog'); lb.setAttribute('aria-label', 'Picture');
+    lb.innerHTML = `<img alt="${esc(img.alt)}" src="${img.src}"><button class="btn iconbtn x" aria-label="Close">✕</button>`;
+    lb.addEventListener('click', () => lb.remove());
+    document.body.appendChild(lb); $('.x', lb).focus();
+    cleanup.push(() => lb.remove());
+  });
+  show(0);
+}
+
+/* ================= ADD / EDIT TRIP ================= */
+let prefill = null;
+function viewForm(id, stage){
+  const existing = id ? Store.trips.find(t => t.id === id) : null;
+  if (id && !existing){
+    setCrumbs([{ t:'World', h:'world' }, { t:'Edit trip' }]);
+    stage.innerHTML = `<div class="page"><div class="empty">${Store.loaded ? 'This trip doesn’t exist anymore.' : 'Loading trip…'}</div></div>`;
+    if (!Store.loaded) lastRouteKey = ''; // re-render when trips arrive
+    return;
+  }
+  setCrumbs(existing ? [{ t:'World', h:'world' }, { t:existing.title, h:'trip-' + existing.id }, { t:'Edit' }] : [{ t:'World', h:'world' }, { t:'New trip' }]);
+  const T = existing ? JSON.parse(JSON.stringify(existing)) : { id:uid(), title:'', startDate:'', endDate:'', notes:'', friends:[], destinations:[], photos:[], createdAt:Date.now() };
+  if (!existing && prefill){ T.destinations = [prefill]; prefill = null; }
+  const pending = []; // new photo files {file, url, caption}
+  const removed = [];
+  formDirty = false;
+  stage.innerHTML = `<div class="page" style="max-width:860px">
+    <div class="pagehead"><h1>${existing ? 'Edit trip' : 'Add a trip'}</h1></div>
+    <form class="form" id="tripForm" novalidate>
+      <div class="field"><label for="fTitle">Trip title</label><input type="text" id="fTitle" required maxlength="120" placeholder="e.g. Austria by train" value="${esc(T.title)}"></div>
+      <div class="row2">
+        <div class="field"><label for="fStart">Start date</label><input type="date" id="fStart" value="${esc(T.startDate)}"></div>
+        <div class="field"><label for="fEnd">End date</label><input type="date" id="fEnd" value="${esc(T.endDate)}"></div>
+      </div>
+      <div class="field"><div class="lbl">Locations <span class="hint">— add one or more stops, in order</span></div>
+        <div class="dests" id="dests"></div>
+        <button type="button" class="btn sm" id="addDest">＋ Add a location</button></div>
+      <div class="field"><label for="fFriendIn">Friends <span class="hint">— press Enter after each name</span></label>
+        <div class="friendbox" id="friendBox"><input id="fFriendIn" type="text" placeholder="Who came along?" autocomplete="off"></div></div>
+      <div class="field"><label for="fNotes">Notes</label><textarea id="fNotes" placeholder="Highlights, places you ate, things to remember…">${esc(T.notes)}</textarea></div>
+      <div class="field"><div class="lbl">Pictures <span class="hint">— the first one is the cover</span></div>
+        <label class="drop" id="drop"><input type="file" id="fFiles" accept="image/*" multiple class="sr-only"><b>Choose pictures</b> or drop them here</label>
+        <div class="photos" id="photos"></div></div>
+      <div class="formactions">
+        <button type="submit" class="btn primary" id="saveBtn">${existing ? 'Save changes' : 'Save trip'}</button>
+        <a class="btn ghost" href="#${existing ? 'trip-' + T.id : 'world'}">Cancel</a>
+        <span class="spacer"></span>
+        ${existing ? '<button type="button" class="btn danger" id="delBtn">Delete trip</button>' : ''}
+      </div>
+      <div class="err" id="err" role="alert"></div><div class="progress" id="prog" aria-live="polite"></div>
+    </form></div>`;
+  const form = $('#tripForm', stage);
+  form.addEventListener('input', () => formDirty = true);
+  // destinations
+  const drawDests = () => {
+    $('#dests', stage).innerHTML = T.destinations.map((d, i) => `<div class="dest"><span class="num">${i+1}</span>
+      <div class="grow"><div class="n">${esc(d.name)}</div><div class="w">${esc([d.stateName, d.countryName].filter(Boolean).join(', ') || 'Unknown place')}</div></div>
+      ${i > 0 ? `<button type="button" class="btn sm ghost" data-up="${i}" aria-label="Move ${esc(d.name)} up">↑</button>` : ''}
+      <button type="button" class="btn sm" data-edit="${i}">Change</button>
+      <button type="button" class="btn sm ghost" data-del="${i}" aria-label="Remove ${esc(d.name)}">✕</button></div>`).join('');
+  };
+  $('#dests', stage).addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.del != null){ T.destinations.splice(+b.dataset.del, 1); formDirty = true; drawDests(); }
+    if (b.dataset.up != null){ const k = +b.dataset.up; [T.destinations[k-1], T.destinations[k]] = [T.destinations[k], T.destinations[k-1]]; formDirty = true; drawDests(); }
+    if (b.dataset.edit != null){ const k = +b.dataset.edit; openPicker(T.destinations[k], d => { T.destinations[k] = d; formDirty = true; drawDests(); }); }
+  });
+  $('#addDest', stage).addEventListener('click', () => openPicker(T.destinations[T.destinations.length - 1] ? { near:T.destinations[T.destinations.length - 1] } : null, d => { T.destinations.push(d); formDirty = true; drawDests(); }));
+  drawDests();
+  // friends
+  const fIn = $('#fFriendIn', stage), fBox = $('#friendBox', stage);
+  const drawFriends = () => {
+    fBox.querySelectorAll('.chip').forEach(c => c.remove());
+    T.friends.forEach((f, i) => { const c = document.createElement('span'); c.className = 'chip'; c.innerHTML = `${esc(f)}<button type="button" aria-label="Remove ${esc(f)}">×</button>`; c.querySelector('button').onclick = () => { T.friends.splice(i, 1); drawFriends(); }; fBox.insertBefore(c, fIn); });
+  };
+  const addFriend = () => { const v = fIn.value.replace(/,/g, '').trim(); if (v && !T.friends.includes(v)) T.friends.push(v); fIn.value = ''; drawFriends(); };
+  fIn.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ','){ e.preventDefault(); addFriend(); } else if (e.key === 'Backspace' && !fIn.value && T.friends.length){ T.friends.pop(); drawFriends(); } });
+  fIn.addEventListener('blur', addFriend);
+  fBox.addEventListener('click', e => { if (e.target === fBox) fIn.focus(); });
+  drawFriends();
+  // photos
+  const drawPhotos = () => {
+    const all = [...T.photos.map((p, i) => ({ kind:'old', p, i })), ...pending.map((p, i) => ({ kind:'new', p, i }))];
+    const el = $('#photos', stage);
+    el.innerHTML = all.map((x, k) => `<div class="ph">${k === 0 ? '<span class="cover">Cover</span>' : ''}<img alt=""><div class="tools">
+      ${k > 0 ? `<button type="button" data-cover="${k}" aria-label="Make cover" title="Make cover">★</button>` : ''}
+      <button type="button" data-rm="${k}" aria-label="Remove picture" title="Remove">✕</button></div>
+      <input type="text" data-cap="${k}" placeholder="Caption" value="${esc(x.p.caption || '')}" aria-label="Caption for picture ${k+1}"></div>`).join('');
+    el.querySelectorAll('img').forEach((img, k) => { const x = all[k]; if (x.kind === 'new') img.src = x.p.url; else setPhoto(img, x.p); });
+    el.querySelectorAll('input[data-cap]').forEach(inp => inp.addEventListener('input', () => { const x = all[+inp.dataset.cap]; x.p.caption = inp.value; }));
+    el.querySelectorAll('button[data-rm]').forEach(b => b.onclick = () => { const x = all[+b.dataset.rm]; if (x.kind === 'old'){ removed.push(T.photos[x.i]); T.photos.splice(x.i, 1); } else { URL.revokeObjectURL(x.p.url); pending.splice(x.i, 1); } formDirty = true; drawPhotos(); });
+    el.querySelectorAll('button[data-cover]').forEach(b => b.onclick = () => {
+      const x = all[+b.dataset.cover];
+      if (x.kind === 'old'){ const [p] = T.photos.splice(x.i, 1); T.photos.unshift(p); }
+      else { const [p] = pending.splice(x.i, 1); pending.unshift(p); p.cover = true; pending.forEach(q => { if (q !== p) q.cover = false; }); }
+      formDirty = true; drawPhotos();
+    });
+  };
+  const addFiles = (files) => { for (const f of files){ if (!f.type.startsWith('image/') && !/\.(heic|heif)$/i.test(f.name)) continue; pending.push({ file:f, url:URL.createObjectURL(f), caption:'' }); } formDirty = true; drawPhotos(); };
+  $('#fFiles', stage).addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+  const drop = $('#drop', stage);
+  ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+  drawPhotos();
+  cleanup.push(() => pending.forEach(p => URL.revokeObjectURL(p.url)));
+  // save
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = $('#err', stage), prog = $('#prog', stage), btn = $('#saveBtn', stage);
+    err.textContent = '';
+    addFriend();
+    T.title = $('#fTitle', stage).value.trim();
+    T.startDate = $('#fStart', stage).value; T.endDate = $('#fEnd', stage).value;
+    T.notes = $('#fNotes', stage).value.trim();
+    if (!T.title){ err.textContent = 'Give the trip a title.'; $('#fTitle', stage).focus(); return; }
+    if (!T.destinations.length){ err.textContent = 'Add at least one location so the trip shows up on the map.'; $('#addDest', stage).focus(); return; }
+    if (T.startDate && T.endDate && T.endDate < T.startDate){ err.textContent = 'The end date is before the start date.'; $('#fEnd', stage).focus(); return; }
+    btn.disabled = true;
+    try {
+      const uploaded = [];
+      for (let k = 0; k < pending.length; k++){
+        prog.textContent = `Uploading picture ${k+1} of ${pending.length}…`;
+        const r = await Store.uploadPhoto(pending[k].file);
+        uploaded.push({ ...r, caption:pending[k].caption || '', cover:pending[k].cover });
+      }
+      const coverNew = uploaded.findIndex(u => u.cover);
+      uploaded.forEach(u => delete u.cover);
+      if (coverNew >= 0){ const [c] = uploaded.splice(coverNew, 1); T.photos = [c, ...T.photos, ...uploaded]; }
+      else T.photos = [...T.photos, ...uploaded];
+      prog.textContent = 'Saving…';
+      await Store.save(T);
+      for (const p of removed) await Store.deletePhoto(p);
+      formDirty = false;
+      pending.length = 0;
+      toast(existing ? 'Trip updated' : 'Trip saved');
+      go('trip-' + T.id);
+    } catch(ex){
+      btn.disabled = false; prog.textContent = '';
+      err.textContent = ex && (ex.name === 'QuotaExceededError' || /quota|full/i.test(ex.message || '')) ? 'This browser is out of storage space. Remove some pictures or trips and try again.' : (ex && ex.message) ? 'Could not save: ' + ex.message : 'Could not save. Try again.';
+    }
+  });
+  const del = $('#delBtn', stage);
+  if (del) del.addEventListener('click', () => confirmBox(`Delete “${existing.title}”?`, 'This removes the trip and its pictures from this browser. It can’t be undone unless you have a backup.', 'Delete trip', async () => {
+    try { await Store.remove(T.id); for (const p of existing.photos || []) await Store.deletePhoto(p); formDirty = false; toast('Trip deleted'); go('world'); }
+    catch(e){ toast('Could not delete the trip'); }
+  }));
+  $('#fTitle', stage).focus({ preventScroll:true });
+}
+function confirmBox(title, body, okLabel, onOk){
+  const m = document.createElement('div'); m.className = 'modal confirm'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
+  m.innerHTML = `<div class="box"><h2>${esc(title)}</h2><p class="sub">${esc(body)}</p><div class="formactions" style="justify-content:flex-end"><button class="btn" data-x>Cancel</button><button class="btn primary" style="background:var(--danger);border-color:var(--danger)" data-ok>${esc(okLabel)}</button></div></div>`;
+  document.body.appendChild(m);
+  const close = () => m.remove();
+  m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-x]')) close(); });
+  $('[data-ok]', m).addEventListener('click', () => { close(); onOk(); });
+  $('[data-x]', m).focus();
+  m.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+}
+
+/* ---------- location picker ---------- */
+function openPicker(current, onDone){
+  const near = current && current.near;
+  if (near) current = null;
+  let sel = current ? { ...current } : null;
+  const m = document.createElement('div'); m.className = 'modal'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true'); m.setAttribute('aria-labelledby', 'pkTitle');
+  m.innerHTML = `<div class="box">
+    <div class="mh"><h2 id="pkTitle">${current ? 'Change location' : 'Add a location'}</h2><button class="btn iconbtn ghost" data-x aria-label="Close">✕</button></div>
+    <div class="picker">
+      <div class="side">
+        <div class="search" style="margin:0">${ICON.search}<label class="sr-only" for="pkQ">Search a city, country or US state</label><input id="pkQ" type="search" placeholder="Search a city, country or state…" autocomplete="off"></div>
+        <ul class="results" id="pkRes"></ul>
+        <p class="sub" style="margin:0">Or tap the map to drop a pin anywhere — a park, a beach, a trailhead.</p>
+        <div class="field"><label for="pkName">Name this stop</label><input type="text" id="pkName" placeholder="e.g. Zion National Park" maxlength="80"></div>
+        <div class="picked" id="pkInfo">No location picked yet.</div>
+      </div>
+      <div class="mapwrap" id="pkMap"></div>
+    </div>
+    <div class="mf"><button class="btn" data-x>Cancel</button><button class="btn primary" id="pkOk" disabled>${current ? 'Update location' : 'Add location'}</button></div>
+  </div>`;
+  document.body.appendChild(m);
+  const prevFocus = document.activeElement;
+  const close = () => { m.remove(); document.removeEventListener('keydown', onEsc); if (prevFocus) prevFocus.focus({ preventScroll:true }); };
+  const onEsc = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onEsc);
+  m.querySelectorAll('[data-x]').forEach(b => b.onclick = close);
+  const nameIn = $('#pkName', m), info = $('#pkInfo', m), ok = $('#pkOk', m), q = $('#pkQ', m), res = $('#pkRes', m);
+  if (sel) nameIn.value = sel.name;
+  let nameTouched = !!current;
+  nameIn.addEventListener('input', () => { nameTouched = true; refresh(); });
+
+  // map
+  const wrap = $('#pkMap', m);
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  const proj = d3.geoMercator().fitExtent([[10, 10], [W - 10, H - 10]], { type:'MultiPoint', coordinates:[[-170, -56], [190, 74]] }).rotate([-10, 0]);
+  proj.fitExtent([[10, 10], [W - 10, H - 10]], { type:'MultiPoint', coordinates:[[-170, -56], [190, 74]] });
+  const path = d3.geoPath(proj);
+  const svg = d3.select(wrap).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('aria-label', 'Map — tap to place a pin');
+  const g = svg.append('g');
+  const cPaths = g.append('g').selectAll('path').data(G.countries).join('path').attr('d', path).attr('class', 'country');
+  const sPaths = g.append('g').selectAll('path').data(G.states).join('path').attr('d', path).attr('class', 'state').style('pointer-events', 'none');
+  const pin = g.append('g').attr('class', 'pin').attr('display', 'none'); pin.append('circle').attr('r', 8);
+  let k = 1;
+  const zoom = d3.zoom().scaleExtent([1, 200]).clickDistance(6).translateExtent([[-W*0.2, -H*0.2], [W*1.2, H*1.2]])
+    .on('zoom', ev => { k = ev.transform.k; g.attr('transform', ev.transform); placePin(); });
+  svg.call(zoom).on('dblclick.zoom', null);
+  const ctl = d3.select(wrap).append('div').attr('class', 'mapctl');
+  ctl.append('button').attr('class', 'btn iconbtn').attr('type', 'button').attr('aria-label', 'Zoom in').text('+').on('click', () => svg.transition().duration(250).call(zoom.scaleBy, 2));
+  ctl.append('button').attr('class', 'btn iconbtn').attr('type', 'button').attr('aria-label', 'Zoom out').text('−').on('click', () => svg.transition().duration(250).call(zoom.scaleBy, 0.5));
+  function placePin(){
+    if (!sel){ pin.attr('display', 'none'); return; }
+    const xy = proj([sel.lon, sel.lat]); pin.attr('display', null).attr('transform', `translate(${xy}) scale(${1/k})`);
+  }
+  function flyTo(geo, maxK = 60){
+    const [[x0, y0], [x1, y1]] = path.bounds(geo);
+    const kk = Math.max(1, Math.min(maxK, 0.8 / Math.max((x1 - x0) / W, (y1 - y0) / H)));
+    const t = d3.zoomIdentity.translate(W/2, H/2).scale(kk).translate(-(x0 + x1)/2, -(y0 + y1)/2);
+    svg.transition().duration(reduceMotion ? 0 : 600).call(zoom.transform, t);
+  }
+  function setPoint(lon, lat, name, zoomTo){
+    const l = locate(lon, lat);
+    sel = { id:(sel && sel.id) || uid('d'), name:'', lon:+lon.toFixed(4), lat:+lat.toFixed(4), country:l.country?.key || null, countryName:l.country?.name || '', state:l.state?.id || null, stateName:l.state?.name || '' };
+    if (name && !nameTouched) nameIn.value = name;
+    if (!name && !nameTouched) nameIn.value = '';
+    placePin(); refresh();
+    if (zoomTo) flyTo({ type:'Feature', geometry:{ type:'Point', coordinates:[lon, lat] } }, zoomTo);
+  }
+  function refresh(){
+    cPaths.classed('focus', f => sel && f.key === sel.country);
+    if (!sel){ info.textContent = 'No location picked yet.'; ok.disabled = true; return; }
+    const where = [sel.stateName, sel.countryName].filter(Boolean).join(', ');
+    info.innerHTML = where ? `📍 In <b>${esc(where)}</b>` : '📍 This spot isn’t inside a country — try tapping closer to land.';
+    ok.disabled = !where || !nameIn.value.trim();
+    if (where && !nameIn.value.trim()) info.innerHTML += '<br>Give this stop a name to add it.';
+  }
+  svg.on('click', ev => {
+    const [x, y] = d3.zoomTransform(svg.node()).invert(d3.pointer(ev, svg.node()));
+    const ll = proj.invert([x, y]); if (!ll) return;
+    nameTouched = nameTouched && !!nameIn.value.trim();
+    setPoint(ll[0], ll[1], null);
+    if (!nameIn.value.trim()) nameIn.focus();
+  });
+  // search: cities, countries, states
+  let cities = null; loadCities().then(c => { cities = c; if (q.value) search(); }).catch(() => {});
+  const search = () => {
+    const term = slug(q.value);
+    if (!term){ res.innerHTML = ''; return; }
+    const out = [];
+    for (const f of G.countries) if (slug(f.name).startsWith(term)) out.push({ kind:'country', label:f.name, sub:'Country', f });
+    for (const s of G.states) if (slug(s.name).startsWith(term)) out.push({ kind:'state', label:s.name, sub:'US state', f:s });
+    if (cities){
+      let n = 0;
+      for (const c of cities){ if (c.s.startsWith(term)){ out.push({ kind:'city', label:c.n, sub:[c.cc === 'US' ? US_POSTAL[c.adm] : '', G.meta.countryNameByA2[c.cc] || c.cc].filter(Boolean).join(', '), c }); if (++n > 12) break; } }
+    } else out.push({ kind:'wait', label:'Loading cities…', sub:'' });
+    res.innerHTML = out.slice(0, 16).map((o, i) => `<li><button type="button" data-i="${i}" ${o.kind === 'wait' ? 'disabled' : ''}>${esc(o.label)}<small>${esc(o.sub)}</small></button></li>`).join('') || '<li class="sub" style="padding:8px">No matches. Tap the map instead.</li>';
+    res.querySelectorAll('button[data-i]').forEach(b => b.onclick = () => {
+      const o = out[+b.dataset.i];
+      res.querySelectorAll('button').forEach(x => x.classList.remove('sel')); b.classList.add('sel');
+      if (o.kind === 'city'){ nameTouched = false; setPoint(o.c.lon, o.c.lat, o.c.n, 40); }
+      else {
+        // zoom to the region; user taps the map to place a specific pin, or we use its centre
+        flyTo(o.kind === 'country' ? mainGeometry(o.f) : o.f, 40);
+        const c = d3.geoCentroid(o.kind === 'country' ? mainGeometry(o.f) : o.f);
+        nameTouched = false; setPoint(c[0], c[1], o.label);
+        info.innerHTML += '<br><span class="sub">Tap the map to move the pin to an exact spot.</span>';
+      }
+    });
+  };
+  q.addEventListener('input', debounce(search, 100));
+  q.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); const b = res.querySelector('button[data-i]'); if (b) b.click(); } });
+  ok.onclick = () => { if (!sel) return; sel.name = nameIn.value.trim(); onDone(sel); close(); };
+  // starting view
+  if (sel){ placePin(); refresh(); flyTo({ type:'Feature', geometry:{ type:'Point', coordinates:[sel.lon, sel.lat] } }, 30); }
+  else if (near){ const f = G.byKey.get(near.country); if (f) flyTo(mainGeometry(f), 20); }
+  setTimeout(() => q.focus(), 30);
+}
+
+/* ---------- backup & restore ---------- */
+function openBackup(){
+  const m = document.createElement('div'); m.className = 'modal'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true'); m.setAttribute('aria-labelledby', 'bkTitle');
+  const last = +(lsGet('tripatlas.lastBackup') || 0);
+  m.innerHTML = `<div class="box" style="max-width:520px;height:auto">
+    <div class="mh"><h2 id="bkTitle">Backup &amp; restore</h2><button class="btn iconbtn ghost" data-x aria-label="Close">✕</button></div>
+    <div style="padding:18px;display:flex;flex-direction:column;gap:16px;overflow:auto">
+      <p style="margin:0">Your trips and pictures are stored only in this browser on this device. Download a backup now and then, and use it to move your atlas to another device or browser.</p>
+      <div><button class="btn primary" id="bkExport">Download backup</button>
+        <div class="sub" style="margin-top:6px" id="bkInfo">${Store.trips.length} trip${Store.trips.length === 1 ? '' : 's'} · last backup: ${last ? new Date(last).toLocaleDateString() : 'never'}</div></div>
+      <div><label class="btn" for="bkFile" style="display:inline-flex">Restore from a backup…</label><input type="file" id="bkFile" accept="application/json,.json" class="sr-only">
+        <div class="sub" style="margin-top:6px">Restoring adds the backup’s trips to this browser. Trips with the same ID get replaced.</div></div>
+      <div class="sub" id="bkUsage"></div>
+      <div class="sub" style="border-top:1px solid var(--line);padding-top:12px;font-size:12px">Map data: Natural Earth (public domain) via world-atlas and us-atlas. City search: GeoNames (CC BY 4.0). Maps drawn with D3.</div>
+    </div></div>`;
+  document.body.appendChild(m);
+  const close = () => { m.remove(); document.removeEventListener('keydown', onEsc); };
+  const onEsc = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onEsc);
+  m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-x]')) close(); });
+  if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(est => {
+    const mb = (n) => (n / 1048576).toFixed(n > 1048576 * 100 ? 0 : 1) + ' MB';
+    $('#bkUsage', m).textContent = `Using ${mb(est.usage || 0)} of about ${mb(est.quota || 0)} available in this browser.`;
+  }).catch(() => {});
+  $('#bkExport', m).addEventListener('click', async (e) => {
+    const b = e.currentTarget; b.disabled = true; b.textContent = 'Preparing…';
+    try {
+      const data = await Store.exportAll();
+      const blob = new Blob([JSON.stringify(data)], { type:'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = `trip-atlas-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      lsSet('tripatlas.lastBackup', String(Date.now()));
+      $('#bkInfo', m).textContent = `${Store.trips.length} trip${Store.trips.length === 1 ? '' : 's'} · last backup: today`;
+      toast('Backup downloaded');
+    } catch(ex){ toast('Could not make the backup'); }
+    b.disabled = false; b.textContent = 'Download backup';
+  });
+  $('#bkFile', m).addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const lbl = m.querySelector('label[for=bkFile]'); lbl.textContent = 'Restoring…';
+    try { const n = await Store.importAll(JSON.parse(await f.text())); lsSet('tripatlas.lastBackup', String(Date.now())); toast(`Restored ${n} trip${n === 1 ? '' : 's'}`); close(); render(true); }
+    catch(ex){ toast(ex && ex.message && ex.message.includes('Trip Atlas') ? ex.message : 'Could not read that backup file'); }
+    lbl.textContent = 'Restore from a backup…'; e.target.value = '';
+  });
+  $('#bkExport', m).focus();
+}
+$('#backupBtn').addEventListener('click', openBackup);
+document.addEventListener('click', e => { const a = e.target.closest('[data-backup]'); if (a){ e.preventDefault(); openBackup(); } });
+
+/* ================= boot ================= */
+$('#brand').addEventListener('click', () => go('world'));
+window.addEventListener('hashchange', () => {
+  if (formDirty && !confirmLeave()) return;
+  formDirty = false; render(true);
+});
+let lastHash = location.hash;
+function confirmLeave(){
+  // A route change away from an unsaved form: bounce back and ask.
+  const target = location.hash;
+  history.replaceState(null, '', lastHash || '#world');
+  confirmBox('Leave without saving?', 'Your changes to this trip will be lost.', 'Leave', () => { formDirty = false; location.hash = target; });
+  return false;
+}
+window.addEventListener('hashchange', () => { lastHash = location.hash; });
+let lastW = innerWidth, lastH = innerHeight;
+window.addEventListener('resize', debounce(() => {
+  if (Math.abs(innerWidth - lastW) < 2 && Math.abs(innerHeight - lastH) < 120) return; // ignore mobile URL-bar jiggle
+  lastW = innerWidth; lastH = innerHeight;
+  const v = parseRoute().view; if (v !== 'form' && v !== 'trip') render(true);
+}, 200));
+Store.listeners.add(() => { if (G.ready) { reindex(); render(); } });
+render(true);
+loadGeo().then(() => { reindex(); render(true); }).catch(e => { $('#stage').innerHTML = location.protocol === 'file:' ? '<div class="loading" style="padding:20px;text-align:center">Trip Atlas needs to be served from a web address, not opened as a file.<br>See the README for how to run it locally or on GitHub Pages.</div>' : '<div class="loading">The map couldn’t load. Refresh to try again.</div>'; console.error(e); });
+Store.init();
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+})();
+</script>
+</body>
+</html>
