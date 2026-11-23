@@ -17,7 +17,7 @@ It's a static site, with no server, no accounts and no build step. Everything yo
   - **Filter:** the **Who went** bar at the top of every page toggles Tommy and Katherine on or off (multi-select). The maps, colors, trip lists and counts all follow it. For example, with only Tommy selected, a trip you took together counts as Tommy's (purple).
   - **Renaming:** to use different names, change `PEOPLE` and the matching keys in `HUES` near the top of the script in `index.html`.
 - **Works on phones:** you can add it to your home screen, and it works offline after the first visit.
-- **Backup & restore:** download one file with all trips and photos, and restore it on another device.
+- **GitHub sync:** trips and photos are saved automatically to a private GitHub repository and shared between your phones (see below).
 
 ## Put it on GitHub Pages
 
@@ -39,14 +39,40 @@ Updates always include a new `sw.js` with a bumped version number. That's what t
 - **iPhone (Safari):** Share → **Add to Home Screen**.
 - **Android (Chrome):** ⋮ → **Install app** (or **Add to Home screen**).
 
-## Your data: please read
+## GitHub sync (recommended)
 
-Trips and photos are saved in the browser you use (IndexedDB), on that device only.
+Trips and photos are saved on the phone you use. Turn on **GitHub sync** and the app also keeps everything in a **private** GitHub repository, so:
 
-- Your phone and your laptop each keep a **separate atlas**. Use **Backup → Download backup**, then **Restore** on the other device, to move your trips over.
-- Clearing your browser's site data, or using private browsing, can erase what's stored. **Download a backup now and then.** The app reminds you every 30 days.
-- Photos are resized to at most 2000px on their longest side before they're stored.
-- Nothing is uploaded anywhere. GitHub Pages only serves the app's code.
+- nothing is lost if a phone is lost or its browser data is cleared,
+- Tommy's and Katherine's phones share **one atlas**: a trip added on one phone shows up on the other,
+- there are no backup files to download or upload.
+
+Sync runs on its own whenever you open the app, come back to it, or add, edit or delete a trip. If you're offline, changes wait and upload once you're back online. The cloud icon in the top bar shows the status: green = synced, blue = syncing, yellow = offline, red = needs attention.
+
+### Set it up once (about 5 minutes, easiest on a computer)
+
+1. **Create a private repository for your data.** This is separate from the public repository that hosts the app. On GitHub, click **New repository**, name it e.g. `trip-atlas-data`, choose **Private**, tick **Add a README file**, and click **Create repository**.
+2. **Create an access token** that can only touch that repository:
+   - GitHub → your profile photo → **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
+   - **Expiration:** the longest GitHub allows.
+   - **Repository access:** *Only select repositories* → `trip-atlas-data`.
+   - **Permissions:** Repository permissions → **Contents → Read and write**.
+   - Click **Generate token** and copy it (it starts with `github_pat_`).
+3. **Connect each phone.** In Trip Atlas, tap the cloud icon (**Sync**), then enter your GitHub username, `trip-atlas-data` and the token, and tap **Connect**. Do the same on the other phone. You can use the same token on both.
+
+Trips already on a phone are merged in when it connects. If the same trip is edited on both phones, the most recent edit wins.
+
+### Good to know
+
+- The token is stored only on the phones you enter it on. **Never put it in the app's repository**, which is public. If a phone is lost, delete the token on GitHub (Settings → Developer settings → Fine-grained tokens) and make a new one.
+- When the token expires, the cloud icon turns red. Make a new token and use **Change token** in the Sync screen.
+- In the data repository you'll see `trips/` (one small file per trip) and `photos/` (one image per photo). Each change is a commit, so GitHub also keeps a full history.
+- Photos added on the other phone download the first time you open that trip, then stay on the phone.
+- The app refuses to connect to a **public** repository, so your photos can't end up public by mistake.
+
+### Backup file (optional)
+
+**Sync → Backup file** still downloads a single file with everything, and **Restore** loads one. You don't need it if sync is on.
 
 ## Run it on your computer
 
@@ -66,7 +92,9 @@ python3 -m http.server 8000
 | `sw.js` | Offline support and installability |
 | `manifest.webmanifest` | App name, colors and icons for "Add to Home Screen" |
 | `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png` | App icons |
-| `countries-50m.json` | World country shapes |
+| `countries-50m.json` | World country shapes (detailed) |
+| `countries-110m.json` | World country shapes (light, used while the globe is moving) |
+| `states-lite.json` | US state shapes (light, used on the globe) |
 | `states-10m.json` | US state shapes |
 | `meta.json` | Country → continent lookup, country names |
 | `cities.json` | About 19,000 cities for the location search |

@@ -64,6 +64,24 @@ a{color:var(--accent)}
 .swatches button[aria-pressed=true]{border-color:var(--ink)}
 .swatches input[type=color]{width:34px;height:34px;border:0;padding:0;background:none;cursor:pointer}
 .opick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.sech{font:600 12px Inter,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2);margin:0 0 10px;cursor:pointer}
+.syncsec #syncSec{display:flex;flex-direction:column;gap:12px}
+.howto{border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:#fff;font-size:14px}
+.howto summary{font-weight:600;cursor:pointer}
+.howto ol{padding-left:20px;margin:10px 0}.howto li{margin-bottom:8px}.howto ul{padding-left:18px;margin:6px 0}
+.howto code{background:var(--paper-2);padding:1px 5px;border-radius:5px;font-size:13px}
+.syncform{display:flex;flex-direction:column;gap:12px}
+.syncform .field input{width:100%;min-height:46px;border-radius:12px;border:1px solid var(--line);background:#fff;padding:10px 12px;font-size:16px}
+.syncstate{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:12px;background:#eef5f3}
+.syncstate[data-state=error]{background:#fbeceb}.syncstate[data-state=offline]{background:#fff4e5}
+.sdot,#backupBtn::after{width:10px;height:10px;border-radius:50%;background:var(--sync,#9aa3a6);flex:none;margin-top:5px}
+[data-state=idle]{--sync:#2e9a56}[data-state=syncing]{--sync:#2563c9}[data-state=offline]{--sync:#c99a12}[data-state=error]{--sync:#b3392f}
+#backupBtn{position:relative}
+#backupBtn::after{content:'';position:absolute;top:6px;right:6px;width:8px;height:8px;margin:0;box-shadow:0 0 0 2px var(--paper)}
+#backupBtn[data-state=off]::after{display:none}
+#backupBtn[data-state=syncing]::after{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.3}}
+.backupsec summary{list-style:revert}
 .ochip.big{min-height:44px;padding:0 18px;font-size:16px}
 .pickhint{align-self:center;font-size:13px;font-weight:600;color:var(--c);margin-left:4px}
 .heatlegend{position:absolute;left:12px;top:12px;z-index:3;display:grid;grid-template-columns:auto 96px;gap:5px 10px;align-items:center;
@@ -99,6 +117,9 @@ a{color:var(--accent)}
 .stage{position:relative;overflow:hidden;background:var(--ocean)}
 .stage.globe-bg{background:radial-gradient(ellipse at 50% 45%,#f9f5ec 0%,#efe8da 60%,#e6ddca 100%)}
 .stage svg{display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none}
+.stage canvas{display:block;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+.stage svg.overlay{position:absolute;inset:0;pointer-events:none}
+.stage svg.overlay .pin{pointer-events:auto}
 .stage.full{grid-column:1 / -1;overflow:auto;background:var(--paper)}
 .panel h2{font-size:24px;margin:0 0 2px}
 .panel .sub{color:var(--ink-2);font-size:14px;margin:0 0 14px}
@@ -195,6 +216,10 @@ a{color:var(--accent)}
 .field input[type=text],.field input[type=date],.field textarea,.field input[type=search]{width:100%;min-height:46px;border-radius:12px;border:1px solid var(--line);background:#fff;padding:10px 12px;font-size:16px}
 .field textarea{min-height:120px;resize:vertical}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row2>*,.field{min-width:0}
+.field input[type=date]{-webkit-appearance:none;appearance:none;display:block;width:100%;max-width:100%;min-width:0;line-height:24px;text-align:left}
+.field input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0}
+.field input[type=date]::-webkit-calendar-picker-indicator{margin-left:auto}
 .dests{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
 .dest{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:#fff}
 .dest .n{font-weight:600}.dest .w{font-size:13px;color:var(--ink-2)}
@@ -257,6 +282,8 @@ a{color:var(--accent)}
   .modal{padding:0}
   .modal .box{border-radius:0;max-height:100dvh;height:100dvh}
   .modal.confirm{padding:16px}
+  .modal:has(> .box[style*="height:auto"]){padding:12px}
+  .modal .box[style*="height:auto"]{border-radius:18px;max-height:calc(100dvh - 24px)}
   .modal.confirm .box{height:auto;border-radius:18px}
   .picker{grid-template-columns:1fr;grid-template-rows:auto 1fr}
   .picker .side{border-right:0;border-bottom:1px solid var(--line);max-height:42dvh}
@@ -281,7 +308,7 @@ a{color:var(--accent)}
   <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
   <div class="spacer"></div>
   <div class="stats" id="stats" aria-live="polite"></div>
-  <button class="btn sm ghost" id="backupBtn" aria-label="Back up or restore your trips"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span class="lbl-long">Backup</span></button>
+  <button class="btn sm ghost" id="backupBtn" data-state="off" aria-label="Sync and backup settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 9.5H7z"/><path d="M12 11v5m-2.2-2.2L12 16l2.2-2.2"/></svg><span class="lbl-long">Sync</span></button>
   <a class="btn primary sm" href="#new" id="addBtn"><span aria-hidden="true">＋</span> Add<span class="lbl-long">&nbsp;trip</span></a>
 </header>
 <div class="ownerbar" id="ownerbar" role="group" aria-label="Filter by trip owner" hidden></div>
@@ -340,7 +367,10 @@ const NICE_NAME = { 'United States of America':'United States', 'Dem. Rep. Congo
 const G = { ready:false, countries:[], byKey:new Map(), states:[], stateById:new Map(), meta:null, cities:null, usKey:'c-840' };
 
 async function loadGeo(){
-  const [world, us, meta] = await Promise.all(['countries-50m.json','states-10m.json','meta.json'].map(u => fetch(u).then(r => { if(!r.ok) throw new Error(u); return r.json(); })));
+  const get = u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.json(); });
+  const [world, us, meta] = await Promise.all(['countries-50m.json','states-10m.json','meta.json'].map(get));
+  // lighter shapes used while the globe is moving (optional: falls back to full detail)
+  const lite = Promise.all(['countries-110m.json','states-lite.json'].map(get)).catch(() => null);
   G.meta = meta;
   G.countries = topojson.feature(world, world.objects.countries).features.filter(f => f.geometry);
   for (const f of G.countries){
@@ -355,6 +385,16 @@ async function loadGeo(){
   for (const s of G.states){ s.key = 's-' + s.id; s.name = s.properties.name; s.bounds = d3.geoBounds(s); G.stateById.set(s.id, s); }
   G.statesMesh = topojson.mesh(us, us.objects.states, (a,b) => a !== b);
   G.nation = topojson.feature(us, us.objects.nation);
+  G.worldMesh = topojson.mesh(world, world.objects.countries);
+  G.worldLand = topojson.merge(world, world.objects.countries.geometries);
+  const l = await lite;
+  if (l){
+    const [w110, sl] = l;
+    const countries = topojson.feature(w110, w110.objects.countries).features.filter(f => f.geometry);
+    for (const f of countries){ f.key = 'c-' + (f.id ? f.id : slug(f.properties.name)); f.cont = (G.byKey.get(f.key) || {}).cont; }
+    const states = topojson.feature(sl, sl.objects.states).features;
+    G.lite = { countries, states, land:topojson.merge(w110, w110.objects.countries.geometries), mesh:topojson.mesh(w110, w110.objects.countries), statesMesh:topojson.mesh(sl, sl.objects.states, (a, b) => a !== b) };
+  }
   G.ready = true;
 }
 function inBounds(b, lon, lat){
@@ -431,9 +471,11 @@ const Store = {
     try { trips = (await this.tx('trips', 'readonly', t => t.objectStore('trips').getAll())) || []; }
     catch(e){ this.error = e; }
     this.trips = trips;
+    await Sync.load();
     this.loaded = true;
     try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
     this.emit();
+    Sync.run();
   },
   emit(){ for (const f of this.listeners) f(); },
   getSetting(k){ return this.tx('settings', 'readonly', t => t.objectStore('settings').get(k)); },
@@ -445,14 +487,21 @@ const Store = {
     const i = this.trips.findIndex(x => x.id === copy.id);
     if (i >= 0) this.trips[i] = copy; else this.trips.push(copy);
     this.emit();
+    Sync.markDirty(copy.id);
   },
   async remove(id){
     await this.tx('trips', 'readwrite', t => t.objectStore('trips').delete(id));
     this.trips = this.trips.filter(t => t.id !== id);
     this.emit();
+    Sync.markDeleted(id);
   },
+  /* used by sync: write/remove without marking the change as ours, then re-read */
+  putRaw(trip){ return this.tx('trips', 'readwrite', t => t.objectStore('trips').put(trip)); },
+  removeRaw(id){ return this.tx('trips', 'readwrite', t => t.objectStore('trips').delete(id)); },
+  async reload(){ this.trips = (await this.tx('trips', 'readonly', t => t.objectStore('trips').getAll())) || []; this.emit(); },
+  getPhotoBlob(id){ return this.tx('photos', 'readonly', t => t.objectStore('photos').get(id)); },
   async uploadPhoto(file){
-    const blob = await compressImage(file, 2000, 0.86);
+    const blob = await compressImage(file, 1800, 0.84);
     const id = uid('p');
     await this.tx('photos', 'readwrite', t => t.objectStore('photos').put(blob, id));
     return { id };
@@ -462,6 +511,10 @@ const Store = {
     if (this.urlCache.has(p.id)) return this.urlCache.get(p.id);
     let b = null;
     try { b = await this.tx('photos', 'readonly', t => t.objectStore('photos').get(p.id)); } catch(e){}
+    if (!b){ // added on the other phone: fetch it once from GitHub and keep a copy here
+      b = await Sync.fetchPhoto(p.id);
+      if (b) try { await this.tx('photos', 'readwrite', t => t.objectStore('photos').put(b, p.id)); } catch(e){}
+    }
     if (!b) return '';
     const u = URL.createObjectURL(b);
     this.urlCache.set(p.id, u);
@@ -470,6 +523,7 @@ const Store = {
   async deletePhoto(p){
     if (!p || !p.id) return;
     try { await this.tx('photos', 'readwrite', t => t.objectStore('photos').delete(p.id)); } catch(e){}
+    Sync.markPhotoDeleted(p.id);
     const u = this.urlCache.get(p.id); if (u){ URL.revokeObjectURL(u); this.urlCache.delete(p.id); }
   },
   /* backup: one JSON file with every trip and every photo (as data URLs) */
@@ -492,6 +546,7 @@ const Store = {
     for (const trip of data.trips){
       if (!trip || typeof trip.id !== 'string' || !/^[A-Za-z0-9_-]+$/.test(trip.id)) continue;
       await this.tx('trips', 'readwrite', t => t.objectStore('trips').put(trip)); n++;
+      Sync.markDirty(trip.id);
     }
     this.trips = (await this.tx('trips', 'readonly', t => t.objectStore('trips').getAll())) || [];
     this.emit();
@@ -510,6 +565,212 @@ async function compressImage(file, max, q){
   } finally { URL.revokeObjectURL(url); }
 }
 function setPhoto(img, p){ Store.photoSrc(p).then(src => { if (src) img.src = src; }); }
+
+/* ================= GitHub sync =================
+   Keeps trips and photos in a PRIVATE GitHub repository, so both phones share one atlas
+   and nothing lives only on one device. Layout of that repository:
+     trips/<trip id>.json   one file per trip
+     photos/<photo id>.jpg  one file per photo
+   Each device remembers which version (git "sha") of each file it last saw. On every sync it
+   pulls files that changed, removes trips deleted elsewhere, then pushes its own changes.
+   If the same trip was edited on both phones, the most recent edit wins. */
+const Sync = {
+  cfg:null, state:null, status:'off', error:'', running:false, again:false, timer:0,
+  blank(){ return { trips:{}, photos:{}, dirty:[], deleted:[], photoDeletes:[], lastSync:0 }; },
+  async load(){
+    try { this.cfg = (await Store.getSetting('syncConfig')) || null; } catch(e){}
+    try { this.state = (await Store.getSetting('syncState')) || this.blank(); } catch(e){ this.state = this.blank(); }
+    this.setStatus(this.enabled() ? 'idle' : 'off');
+  },
+  enabled(){ return !!(this.cfg && this.cfg.token && this.cfg.owner && this.cfg.repo); },
+  saveState(){ return Store.setSetting('syncState', this.state).catch(() => {}); },
+  setStatus(s, err){ this.status = s; this.error = err || ''; renderSyncBadge(); if (this.onStatus) this.onStatus(); },
+  onStatus:null,
+  /* ---- change tracking (called by Store) ---- */
+  markDirty(id){
+    if (!this.state) return;
+    if (!this.state.dirty.includes(id)) this.state.dirty.push(id);
+    this.state.deleted = this.state.deleted.filter(x => x !== id);
+    this.saveState(); this.schedule();
+  },
+  markDeleted(id){
+    if (!this.state) return;
+    this.state.dirty = this.state.dirty.filter(x => x !== id);
+    if (this.state.trips[id] && !this.state.deleted.includes(id)) this.state.deleted.push(id);
+    this.saveState(); this.schedule();
+  },
+  markPhotoDeleted(pid){
+    if (!this.state) return;
+    if (this.state.photos[pid] && !this.state.photoDeletes.includes(pid)) this.state.photoDeletes.push(pid);
+    this.saveState(); this.schedule();
+  },
+  schedule(ms = 1200){ if (!this.enabled()) return; clearTimeout(this.timer); this.timer = setTimeout(() => this.run(), ms); },
+  /* ---- GitHub API ---- */
+  async api(path, opts = {}){
+    const { owner, repo, token } = this.cfg;
+    const r = await fetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}${path}`, {
+      cache:'no-store', ...opts,
+      headers:{ Authorization:'Bearer ' + token, Accept:'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28', ...(opts.headers || {}) },
+    });
+    return r;
+  },
+  async fail(r, what){
+    let msg = '';
+    try { msg = (await r.json()).message || ''; } catch(e){}
+    const e = new Error(r.status === 401 ? 'GitHub didn’t accept the token (it may have expired). Paste a new one in Sync settings.'
+      : r.status === 403 ? 'The token isn’t allowed to change this repository. Check it has “Contents: Read and write”.'
+      : r.status === 404 ? 'Repository not found. Check the name, and that the token can access it.'
+      : `${what} failed (${r.status}${msg ? ': ' + msg : ''})`);
+    e.status = r.status; throw e;
+  },
+  async raw(path){
+    const r = await this.api('/contents/' + path + '?ref=' + encodeURIComponent(this.cfg.branch || 'main'), { headers:{ Accept:'application/vnd.github.raw+json' } });
+    if (r.status === 404) return null;
+    if (!r.ok) await this.fail(r, 'Download');
+    return r;
+  },
+  async put(path, b64, sha, message){
+    const body = { message, content:b64, branch:this.cfg.branch || 'main' };
+    if (sha) body.sha = sha;
+    const r = await this.api('/contents/' + path, { method:'PUT', body:JSON.stringify(body), headers:{ 'Content-Type':'application/json' } });
+    if (!r.ok) await this.fail(r, 'Upload');
+    return (await r.json()).content.sha;
+  },
+  async del(path, sha, message){
+    const r = await this.api('/contents/' + path, { method:'DELETE', body:JSON.stringify({ message, sha, branch:this.cfg.branch || 'main' }), headers:{ 'Content-Type':'application/json' } });
+    if (!r.ok && r.status !== 404) await this.fail(r, 'Delete');
+  },
+  /** download a photo that only exists in the repository (e.g. added on the other phone) */
+  async fetchPhoto(pid){
+    if (!this.enabled()) return null;
+    try { const r = await this.raw(`photos/${pid}.jpg`); return r ? await r.blob() : null; } catch(e){ return null; }
+  },
+  /* ---- the sync itself ---- */
+  async run(){
+    if (!this.enabled()) return;
+    if (this.running){ this.again = true; return; }
+    if (!navigator.onLine){ this.setStatus('offline'); return; }
+    this.running = true; this.setStatus('syncing');
+    try {
+      try { await this.once(); }
+      catch(e){ if (e.status === 409 || e.status === 422) await this.once(); else throw e; } // someone else changed a file mid-sync: pull again, then retry
+      this.state.lastSync = Date.now(); await this.saveState();
+      this.setStatus('idle');
+    } catch(e){
+      console.warn('sync', e);
+      this.setStatus(navigator.onLine ? 'error' : 'offline', e.message || String(e));
+    }
+    this.running = false;
+    if (this.again){ this.again = false; this.run(); }
+  },
+  async once(){
+    const st = this.state;
+    // 1. what's in the repository right now
+    let tree = [];
+    const r = await this.api(`/git/trees/${encodeURIComponent(this.cfg.branch || 'main')}?recursive=1`);
+    if (r.ok) tree = (await r.json()).tree || [];
+    else if (r.status !== 404 && r.status !== 409) await this.fail(r, 'Checking for changes'); // 404/409: empty repository
+    const rTrips = {}, rPhotos = {};
+    for (const e of tree){
+      let m;
+      if ((m = e.path.match(/^trips\/([A-Za-z0-9_-]+)\.json$/))) rTrips[m[1]] = e.sha;
+      else if ((m = e.path.match(/^photos\/([A-Za-z0-9_-]+)\.jpg$/))) rPhotos[m[1]] = e.sha;
+    }
+    const dirty = new Set(st.dirty), deleted = new Set(st.deleted);
+    const local = new Map(Store.trips.map(t => [t.id, t]));
+    let changed = false;
+    // 2. pull trips that are new or changed on the other phone
+    for (const [id, sha] of Object.entries(rTrips)){
+      if (st.trips[id] === sha || deleted.has(id)) continue;
+      const res = await this.raw(`trips/${id}.json`);
+      if (!res) continue;
+      let remote; try { remote = JSON.parse(await res.text()); } catch(e){ continue; }
+      remote.id = id;
+      const mine = local.get(id);
+      if (mine && dirty.has(id) && (mine.updatedAt || 0) >= (remote.updatedAt || 0)){ st.trips[id] = sha; continue; } // ours is newer: push below
+      await Store.putRaw(remote); dirty.delete(id); st.trips[id] = sha; changed = true;
+    }
+    // trips deleted on the other phone
+    for (const id of Object.keys(st.trips)){
+      if (rTrips[id]) continue;
+      delete st.trips[id];
+      if (!dirty.has(id) && local.has(id)){ await Store.removeRaw(id); changed = true; }
+    }
+    st.dirty = [...dirty];
+    await this.saveState();
+    if (changed) await Store.reload();
+    // 3. push our deletions
+    for (const id of [...deleted]){
+      if (rTrips[id]) await this.del(`trips/${id}.json`, rTrips[id], 'Delete trip');
+      delete st.trips[id]; deleted.delete(id); st.deleted = [...deleted]; await this.saveState();
+    }
+    // 4. push our new/edited trips (their photos first)
+    for (const id of [...dirty]){
+      const t = Store.trips.find(x => x.id === id);
+      if (!t){ dirty.delete(id); continue; }
+      for (const p of t.photos || []){
+        if (!p.id || rPhotos[p.id]) continue;
+        const blob = await Store.getPhotoBlob(p.id);
+        if (!blob) continue;
+        rPhotos[p.id] = await this.put(`photos/${p.id}.jpg`, await blobToB64(blob), null, `Add photo: ${t.title}`);
+        st.photos[p.id] = true; await this.saveState();
+      }
+      const { id:_id, ...body } = t;
+      st.trips[id] = await this.put(`trips/${id}.json`, textToB64(JSON.stringify(body, null, 1)), rTrips[id], `${rTrips[id] ? 'Update' : 'Add'} trip: ${t.title}`);
+      dirty.delete(id); st.dirty = [...dirty]; await this.saveState();
+    }
+    // 5. photos removed from trips on this phone
+    for (const pid of [...st.photoDeletes]){
+      if (rPhotos[pid]) await this.del(`photos/${pid}.jpg`, rPhotos[pid], 'Remove photo');
+      delete st.photos[pid]; st.photoDeletes = st.photoDeletes.filter(x => x !== pid); await this.saveState();
+    }
+    for (const pid of Object.keys(rPhotos)) st.photos[pid] = true;
+  },
+  /** first connection from this phone: check the repository, then merge */
+  async connect(cfg){
+    const prev = this.cfg;
+    this.cfg = { owner:cfg.owner.trim().replace(/^@/, ''), repo:cfg.repo.trim(), token:cfg.token.trim() };
+    try {
+      const r = await this.api('');
+      if (!r.ok) await this.fail(r, 'Connecting');
+      const info = await r.json();
+      if (!info.private) throw new Error('That repository is public, so anyone could see your trips and photos. Make it private on GitHub (its Settings → General → Danger Zone → Change visibility), then connect again.');
+      this.cfg.branch = info.default_branch || 'main';
+    } catch(e){ this.cfg = prev; throw e; }
+    await Store.setSetting('syncConfig', this.cfg);
+    this.state = this.blank();
+    this.state.dirty = Store.trips.map(t => t.id); // everything on this phone gets merged in
+    await this.saveState();
+    await this.run();
+    if (this.status === 'error') throw new Error(this.error);
+  },
+  async disconnect(){
+    this.cfg = null; this.state = this.blank();
+    await Store.setSetting('syncConfig', null); await this.saveState();
+    this.setStatus('off');
+  },
+};
+function textToB64(str){
+  const bytes = new TextEncoder().encode(str); let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+async function blobToB64(blob){ return (await blobToDataURL(blob)).split(',')[1]; }
+function timeAgo(ms){
+  const s = Math.round((Date.now() - ms) / 1000);
+  if (s < 45) return 'just now';
+  if (s < 3600) return Math.round(s / 60) + ' min ago';
+  if (s < 86400) return Math.round(s / 3600) + ' h ago';
+  return new Date(ms).toLocaleDateString();
+}
+function renderSyncBadge(){
+  const b = $('#backupBtn'); if (!b) return;
+  const st = Sync.status;
+  const label = { off:'Sync', idle:'Synced', syncing:'Syncing…', offline:'Offline', error:'Sync issue' }[st] || 'Sync';
+  b.dataset.state = st;
+  b.setAttribute('aria-label', `${label}. Open sync and backup settings`);
+  $('.lbl-long', b).textContent = label;
+}
 
 /* ================= who went: Tommy & Katherine =================
    Each trip is tagged with who went (`owners`). Places are colored by who has been there
@@ -713,7 +974,8 @@ function wireTripList(ul, trips, hooks = {}){
 function statusBanner(){
   if (Store.error) return `<div class="banner">This browser won’t let Trip Atlas save data (private browsing can do this). Trips you add may not be kept.</div>`;
   const last = +(lsGet('tripatlas.lastBackup') || 0);
-  if (Store.trips.length && Date.now() - last > 30 * 864e5) return `<div class="banner">Your trips live only in this browser. <a href="#" data-backup>Back them up</a> now and then so you never lose them.</div>`;
+  if (Sync.status === 'error') return `<div class="banner">Trips aren’t syncing to GitHub right now. <a href="#" data-backup>See what’s wrong</a></div>`;
+  if (!Sync.enabled() && Store.trips.length && Date.now() - last > 3 * 864e5) return `<div class="banner">Your trips are only on this phone. <a href="#" data-backup>Turn on GitHub sync</a> so they’re saved and shared between your phones.</div>`;
   return '';
 }
 function emptyState(){
@@ -772,58 +1034,122 @@ function viewWorld(panel, stage){
   const globe = makeGlobe(stage);
   drawList();
 }
+/* The globe is drawn on a <canvas> (much faster than SVG on phones). While it's moving
+   it uses lighter, lower-detail shapes; once it settles it redraws in full detail.
+   Trip pins sit in a small SVG layer on top so they stay tappable. */
 function makeGlobe(stage){
   const W = stage.clientWidth, H = stage.clientHeight;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const base = Math.min(W, H) / 2 * 0.86;
-  const proj = d3.geoOrthographic().translate([W/2, H/2]).scale(base * globeK).rotate(globeRot).clipAngle(90).precision(0.6);
-  const path = d3.geoPath(proj);
-  const svg = d3.select(stage).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Interactive globe. Visited countries are filled in orange.');
-  const defs = svg.append('defs');
-  const gr = defs.append('radialGradient').attr('id', 'oceanGrad').attr('cx', '40%').attr('cy', '35%');
-  gr.append('stop').attr('offset', '0%').attr('stop-color', '#e6f0f1');
-  gr.append('stop').attr('offset', '100%').attr('stop-color', '#bcd2d6');
-  const sphere = svg.append('path').datum({ type:'Sphere' }).attr('class', 'sphere');
-  const grat = svg.append('path').datum(d3.geoGraticule10()).attr('class', 'grat');
-  const gC = svg.append('g');
-  const cp = gC.selectAll('path').data(G.countries).join('path')
-    .attr('class', d => 'country clickable' + (IDX.visitedCountries.has(d.key) && d.key !== G.usKey ? ' visited' : ''))
-    .style('fill', d => d.key !== G.usKey ? paintPlace(d.key, false) : null)
-    .attr('data-cont', d => d.cont);
-  const statesP = svg.append('path').datum(G.statesMesh).attr('class', 'state').style('pointer-events', 'none');
-  const visitedStatesP = svg.append('g').style('pointer-events', 'none').selectAll('path').data(G.states.filter(s => IDX.visitedStates.has(s.id))).join('path').attr('class', 'state visited').style('fill', s => paintPlace('s-' + s.id, false));
-  const dests = IDX.trips.flatMap(t => (t.destinations || []).map(d => ({ t, d })));
-  const gRoutes = svg.append('g');
-  const routes = gRoutes.selectAll('path').data(IDX.trips.filter(t => (t.destinations||[]).length > 1)).join('path').attr('class', 'route')
-    .datum(t => ({ t, geo:{ type:'LineString', coordinates:t.destinations.map(d => [d.lon, d.lat]) } }))
-    .style('stroke', r => Owners.tripColor(r.t));
-  const gPins = svg.append('g');
-  const pins = gPins.selectAll('g').data(dests).join('g').attr('class', 'pin');
-  pins.append('circle').attr('r', 5).style('fill', p => Owners.tripColor(p.t));
-  const tip = d3.select(stage).append('div').attr('class', 'tip');
-  addHeatLegend(stage);
-  d3.select(stage).append('div').attr('class', 'maphint').text(matchMedia('(pointer:coarse)').matches ? 'Drag to spin · pinch to zoom · tap a continent' : 'Drag to spin · scroll to zoom · click a continent');
+  const proj = d3.geoOrthographic().translate([W/2, H/2]).scale(base * globeK).rotate(globeRot).clipAngle(90);
+  const canvas = d3.select(stage).append('canvas')
+    .attr('width', Math.round(W * dpr)).attr('height', Math.round(H * dpr))
+    .style('width', W + 'px').style('height', H + 'px')
+    .attr('role', 'img').attr('aria-label', 'Interactive globe of the places you have been. Use the continent buttons in the panel to explore with a keyboard.');
+  const ctx = canvas.node().getContext('2d');
+  const path = d3.geoPath(proj, ctx);
+  const overlay = d3.select(stage).append('svg').attr('class', 'overlay').attr('viewBox', `0 0 ${W} ${H}`);
+  const grat = d3.geoGraticule10();
+  const SPHERE = { type:'Sphere' };
 
-  function redraw(){
-    sphere.attr('d', path); grat.attr('d', path); cp.attr('d', path); statesP.attr('d', path); visitedStatesP.attr('d', path);
-    routes.attr('d', r => path(r.geo));
+  // Pre-group the colored places once, for both detail levels.
+  const groups = (countries, states) => {
+    const m = new Map();
+    const add = (f, c) => { if (!c) return; if (!m.has(c)) m.set(c, []); m.get(c).push(f); };
+    for (const f of countries) if (f.key !== G.usKey) add(f, paintPlace(f.key, false));
+    for (const s of states) add(s, paintPlace('s-' + s.id, false));
+    return [...m];
+  };
+  const HI = { countries:G.countries, land:G.worldLand, mesh:G.worldMesh, states:G.states, statesMesh:G.lite ? G.lite.statesMesh : G.statesMesh };
+  const LO = G.lite ? { countries:G.lite.countries, land:G.lite.land, mesh:G.lite.mesh, states:G.lite.states, statesMesh:G.lite.statesMesh } : HI;
+  HI.fills = groups(HI.countries, HI.states);
+  LO.fills = LO === HI ? HI.fills : groups(LO.countries, LO.states);
+  const contOf = new Map(G.countries.map(f => [f.key, f.cont]));
+  let hoverCont = null;
+
+  const routes = IDX.trips.filter(t => (t.destinations||[]).length > 1)
+    .map(t => ({ t, color:Owners.tripColor(t), geo:{ type:'LineString', coordinates:t.destinations.map(d => [d.lon, d.lat]) } }));
+  let hotTrip = null;
+
+  function draw(lo){
+    // Full detail only when zoomed in and still; the lighter shapes look the same at globe scale.
+    const S = (lo || proj.scale() < base * 2.2) ? LO : HI;
+    proj.precision(lo ? 0 : 0.7);
+    const [cx, cy] = proj.translate(), r = proj.scale();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    // ocean
+    const grad = ctx.createRadialGradient(cx - r * 0.25, cy - r * 0.3, r * 0.05, cx, cy, r);
+    grad.addColorStop(0, '#e6f0f1'); grad.addColorStop(1, '#bcd2d6');
+    ctx.beginPath(); path(SPHERE); ctx.fillStyle = grad; ctx.fill();
+    ctx.beginPath(); path(grat); ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 0.5; ctx.stroke();
+    // land
+    ctx.beginPath(); path(S.land); ctx.fillStyle = '#e8e0cf'; ctx.fill();
+    // visited places (one fill call per color)
+    for (const [color, feats] of S.fills){ ctx.beginPath(); for (const f of feats) path(f); ctx.fillStyle = color; ctx.fill(); }
+    // hovered continent
+    if (hoverCont){ ctx.beginPath(); for (const f of S.countries) if ((f.cont || contOf.get(f.key)) === hoverCont) path(f); ctx.fillStyle = 'rgba(30,42,47,.10)'; ctx.fill(); }
+    // borders
+    ctx.beginPath(); path(S.mesh); ctx.strokeStyle = '#b3a68d'; ctx.lineWidth = 0.6; ctx.stroke();
+    ctx.beginPath(); path(S.statesMesh); ctx.strokeStyle = 'rgba(160,148,124,.7)'; ctx.lineWidth = 0.4; ctx.stroke();
+    ctx.beginPath(); path(SPHERE); ctx.strokeStyle = '#a9bfc2'; ctx.lineWidth = 1; ctx.stroke();
+    // routes
+    ctx.setLineDash([5, 5]); ctx.globalAlpha = 0.85;
+    for (const rt of routes){ ctx.beginPath(); path(rt.geo); ctx.strokeStyle = rt.color; ctx.lineWidth = rt.t === hotTrip ? 3.5 : 2; ctx.stroke(); }
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    placePins();
+  }
+
+  // pins (SVG overlay)
+  const dests = IDX.trips.flatMap(t => (t.destinations || []).map(d => ({ t, d })));
+  const pins = overlay.selectAll('g').data(dests).join('g').attr('class', 'pin');
+  pins.append('circle').attr('r', 5).style('fill', p => Owners.tripColor(p.t))
+    .attr('tabindex', 0).attr('role', 'link').attr('aria-label', p => `${p.t.title}: ${p.d.name}`);
+  function placePins(){
     const r = proj.rotate(), center = [-r[0], -r[1]];
     pins.attr('display', p => d3.geoDistance([p.d.lon, p.d.lat], center) < Math.PI/2 - 0.02 ? null : 'none')
-        .attr('transform', p => { const xy = proj([p.d.lon, p.d.lat]); return xy ? `translate(${xy})` : null; });
+        .attr('transform', p => `translate(${proj([p.d.lon, p.d.lat])})`);
   }
-  redraw();
 
-  // hover / click continents
+  // Redraw at most once per frame; low detail while moving, full detail ~150 ms after it stops.
+  let raf = 0, lowNext = false, idleT = 0;
+  function schedule(moving){
+    lowNext = lowNext || moving;
+    if (!raf) raf = requestAnimationFrame(() => { raf = 0; const lo = lowNext; lowNext = false; draw(lo); });
+    clearTimeout(idleT);
+    if (moving) idleT = setTimeout(() => schedule(false), 160);
+  }
+  draw(false);
+
+  // what's under a point on the globe
+  function countryAt(ev){
+    const [x, y] = d3.pointer(ev, canvas.node());
+    const ll = proj.invert([x, y]); if (!ll) return null;
+    const r = proj.rotate();
+    if (d3.geoDistance(ll, [-r[0], -r[1]]) > Math.PI/2) return null;
+    return findIn(G.countries, ll[0], ll[1]);
+  }
+  const tip = d3.select(stage).append('div').attr('class', 'tip');
   const showTip = (ev, html) => { const [x, y] = d3.pointer(ev, stage); tip.html(html).style('left', x + 'px').style('top', y + 'px').classed('on', true); };
-  cp.on('mousemove', (ev, d) => {
-    cp.classed('hl', c => c.cont === d.cont);
-    showTip(ev, `<b>${esc(CONTINENTS[d.cont].name)}</b> · ${esc(d.name)}`);
-  }).on('mouseleave', () => { cp.classed('hl', false); tip.classed('on', false); })
-    .on('click', (ev, d) => go('continent-' + d.cont));
+  let hoverRaf = 0;
+  canvas.on('mousemove', ev => {
+    if (hoverRaf) return;
+    hoverRaf = requestAnimationFrame(() => {
+      hoverRaf = 0;
+      const f = countryAt(ev);
+      canvas.style('cursor', f ? 'pointer' : 'grab');
+      if (f) showTip(ev, `<b>${esc(CONTINENTS[f.cont].name)}</b> · ${esc(f.name)}`); else tip.classed('on', false);
+      const c = f ? f.cont : null;
+      if (c !== hoverCont){ hoverCont = c; schedule(false); }
+    });
+  }).on('mouseleave', () => { tip.classed('on', false); if (hoverCont){ hoverCont = null; schedule(false); } })
+    .on('click', ev => { const f = countryAt(ev); if (f) go('continent-' + f.cont); });
   pins.on('mousemove', (ev, p) => showTip(ev, `<b>${esc(p.t.title)}</b> · ${esc(p.d.name)}`))
       .on('mouseleave', () => tip.classed('on', false))
-      .on('click', (ev, p) => { ev.stopPropagation(); go('trip-' + p.t.id); });
+      .on('click', (ev, p) => { ev.stopPropagation(); go('trip-' + p.t.id); })
+      .on('keydown', (ev, p) => { if (ev.key === 'Enter') go('trip-' + p.t.id); });
 
-  // drag-to-rotate + zoom
+  // drag to rotate, pinch/scroll to zoom
   let last = null, spinning = false, timer = null;
   const zoom = d3.zoom().scaleExtent([0.6, 8]).clickDistance(6)
     .on('start', () => { spinning = false; })
@@ -835,37 +1161,43 @@ function makeGlobe(stage){
         const s = 0.28 / t.k, r = proj.rotate();
         proj.rotate([r[0] + (t.x - last.x) * s, Math.max(-85, Math.min(85, r[1] - (t.y - last.y) * s)), r[2]]);
       }
-      last = { x:t.x, y:t.y }; globeRot = proj.rotate(); redraw();
+      last = { x:t.x, y:t.y }; globeRot = proj.rotate();
+      tip.classed('on', false);
+      schedule(true);
     });
-  const svgNode = svg.node();
-  svg.call(zoom).call(zoom.transform, d3.zoomIdentity.scale(globeK));
+  canvas.call(zoom).call(zoom.transform, d3.zoomIdentity.scale(globeK));
   last = { x:0, y:0 };
-  svg.on('dblclick.zoom', null);
+  canvas.on('dblclick.zoom', null);
   spinning = !reduceMotion;
   if (spinning){
     let prev = 0;
-    timer = d3.timer((el) => { if (!spinning) return; const dt = el - prev; prev = el; const r = proj.rotate(); proj.rotate([r[0] + dt * 0.006, r[1], r[2]]); globeRot = proj.rotate(); redraw(); });
+    timer = d3.timer((el) => {
+      if (!spinning){ timer.stop(); schedule(false); return; }
+      const dt = el - prev; prev = el; const r = proj.rotate(); proj.rotate([r[0] + dt * 0.006, r[1], r[2]]); globeRot = proj.rotate(); schedule(true);
+    });
   }
   // controls
   const ctl = d3.select(stage).append('div').attr('class', 'mapctl');
-  ctl.append('button').attr('class', 'btn iconbtn').attr('aria-label', 'Zoom in').text('+').on('click', () => svg.transition().duration(250).call(zoom.scaleBy, 1.5));
-  ctl.append('button').attr('class', 'btn iconbtn').attr('aria-label', 'Zoom out').text('−').on('click', () => svg.transition().duration(250).call(zoom.scaleBy, 1/1.5));
+  ctl.append('button').attr('class', 'btn iconbtn').attr('aria-label', 'Zoom in').text('+').on('click', () => canvas.transition().duration(250).call(zoom.scaleBy, 1.5));
+  ctl.append('button').attr('class', 'btn iconbtn').attr('aria-label', 'Zoom out').text('−').on('click', () => canvas.transition().duration(250).call(zoom.scaleBy, 1/1.5));
+  addHeatLegend(stage);
+  d3.select(stage).append('div').attr('class', 'maphint').text(matchMedia('(pointer:coarse)').matches ? 'Drag to spin · pinch to zoom · tap a continent' : 'Drag to spin · scroll to zoom · click a continent');
 
-  // fly-to for hovered trips in the list
+  // fly to a trip when it's hovered in the list
   let flyT = null;
   function focusTrip(t){
-    pins.classed('hot', p => t && p.t === t); routes.classed('hot', r => t && r.t === t);
-    if (!t || !(t.destinations||[]).length) return;
+    hotTrip = t; pins.classed('hot', p => t && p.t === t);
+    if (!t || !(t.destinations||[]).length){ schedule(false); return; }
     spinning = false;
     const target = d3.geoCentroid({ type:'MultiPoint', coordinates:t.destinations.map(d => [d.lon, d.lat]) });
     const from = proj.rotate(), to = [-target[0], -target[1], 0];
     const interp = d3.interpolate(from, to);
     if (flyT) flyT.stop();
-    if (reduceMotion){ proj.rotate(to); globeRot = to; redraw(); return; }
-    flyT = d3.timer(el => { const k = Math.min(1, el / 650); proj.rotate(interp(d3.easeCubicOut(k))); globeRot = proj.rotate(); redraw(); if (k >= 1) flyT.stop(); });
+    if (reduceMotion){ proj.rotate(to); globeRot = to; schedule(false); return; }
+    flyT = d3.timer(el => { const k = Math.min(1, el / 650); proj.rotate(interp(d3.easeCubicOut(k))); globeRot = proj.rotate(); schedule(k < 1); if (k >= 1) flyT.stop(); });
   }
-  cleanup.push(() => { if (timer) timer.stop(); if (flyT) flyT.stop(); svg.on('.zoom', null); });
-  return { focusTrip, svgNode };
+  cleanup.push(() => { if (timer) timer.stop(); if (flyT) flyT.stop(); cancelAnimationFrame(raf); cancelAnimationFrame(hoverRaf); clearTimeout(idleT); canvas.on('.zoom', null); });
+  return { focusTrip };
 }
 
 /* ================= flat maps (continent + place) ================= */
@@ -1484,22 +1816,86 @@ function openPicker(current, onDone){
 }
 
 /* ---------- backup & restore ---------- */
+function syncSectionHTML(){
+  if (!Sync.enabled()) return `
+    <p style="margin:0">Save your trips and photos to a <b>private GitHub repository</b>. Everything then syncs automatically: nothing gets lost if a phone does, and Tommy’s and Katherine’s phones share one atlas.</p>
+    <details class="howto"><summary>How to set it up (about 5 minutes, easiest on a computer)</summary>
+      <ol>
+        <li>On GitHub, create a <b>new repository</b>, e.g. <code>trip-atlas-data</code>. Choose <b>Private</b> and tick <b>Add a README file</b>. (Keep it separate from the repository that hosts this app, which is public.)</li>
+        <li>Make an access token: GitHub → your photo → <b>Settings</b> → <b>Developer settings</b> → <b>Personal access tokens</b> → <b>Fine-grained tokens</b> → <b>Generate new token</b>.
+          <ul><li>Expiration: the longest you’re allowed.</li><li>Repository access: <b>Only select repositories</b> → your data repository.</li><li>Permissions → Repository permissions → <b>Contents: Read and write</b>.</li></ul>
+          Generate it and copy the token (it starts with <code>github_pat_</code>).</li>
+        <li>Enter your GitHub username, the repository name and the token below, then tap Connect. Do the same on the other phone. You can use the same token on both.</li>
+      </ol>
+      <p class="sub">The token is stored only on this phone. Never put it in the app’s repository. If a phone is lost, delete the token on GitHub and make a new one.</p>
+    </details>
+    <form id="syncForm" class="syncform" novalidate>
+      <div class="field"><label for="sOwner">GitHub username</label><input type="text" id="sOwner" autocomplete="off" autocapitalize="off" spellcheck="false" required></div>
+      <div class="field"><label for="sRepo">Private repository name</label><input type="text" id="sRepo" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="trip-atlas-data" required></div>
+      <div class="field"><label for="sToken">Access token</label><input type="password" id="sToken" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…" required></div>
+      <button class="btn primary" type="submit" id="sConnect">Connect</button>
+      <div class="err" id="sErr" role="alert"></div>
+    </form>`;
+  const st = Sync.state || {};
+  const pending = (st.dirty || []).length + (st.deleted || []).length + (st.photoDeletes || []).length;
+  const line = { idle:`Synced ${st.lastSync ? timeAgo(st.lastSync) : ''}`, syncing:'Syncing now…', offline:'Offline. Changes will sync when you’re back online.', error:'Couldn’t sync' }[Sync.status] || '';
+  return `
+    <div class="syncstate" data-state="${Sync.status}"><span class="sdot"></span><div><b>${esc(line)}</b>
+      <div class="sub">Connected to <b>${esc(Sync.cfg.owner)}/${esc(Sync.cfg.repo)}</b>${pending ? ` · ${pending} change${pending === 1 ? '' : 's'} waiting to upload` : ''}</div>
+      ${Sync.status === 'error' ? `<div class="err">${esc(Sync.error)}</div>` : ''}</div></div>
+    <p class="sub" style="margin:0">Trips and photos sync on their own whenever you open the app or change something. Photos added on the other phone download the first time you view them.</p>
+    <div class="formactions"><button class="btn primary sm" data-syncnow ${Sync.status === 'syncing' ? 'disabled' : ''}>Sync now</button>
+      <button class="btn sm" data-synctoken>Change token</button>
+      <button class="btn sm ghost danger" data-syncoff>Disconnect</button></div>`;
+}
 function openBackup(){
   const m = document.createElement('div'); m.className = 'modal'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true'); m.setAttribute('aria-labelledby', 'bkTitle');
   const last = +(lsGet('tripatlas.lastBackup') || 0);
-  m.innerHTML = `<div class="box" style="max-width:520px;height:auto">
-    <div class="mh"><h2 id="bkTitle">Backup &amp; restore</h2><button class="btn iconbtn ghost" data-x aria-label="Close">✕</button></div>
+  m.innerHTML = `<div class="box" style="max-width:560px;height:auto">
+    <div class="mh"><h2 id="bkTitle">Sync &amp; backup</h2><button class="btn iconbtn ghost" data-x aria-label="Close">✕</button></div>
     <div style="padding:18px;display:flex;flex-direction:column;gap:16px;overflow:auto">
-      <p style="margin:0">Your trips and pictures are stored only in this browser on this device. Download a backup now and then, and use it to move your atlas to another device or browser.</p>
-      <div><button class="btn primary" id="bkExport">Download backup</button>
+      <section class="syncsec"><h3 class="sech">GitHub sync</h3><div id="syncSec"></div></section>
+      <details class="backupsec"><summary class="sech">Backup file (optional)</summary>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">
+      <p style="margin:0" class="sub">A single file with every trip and photo. Handy for a one-off copy, or to move trips into a new browser without GitHub.</p>
+      <div><button class="btn" id="bkExport">Download backup</button>
         <div class="sub" style="margin-top:6px" id="bkInfo">${Store.trips.length} trip${Store.trips.length === 1 ? '' : 's'} · last backup: ${last ? new Date(last).toLocaleDateString() : 'never'}</div></div>
       <div><label class="btn" for="bkFile" style="display:inline-flex">Restore from a backup…</label><input type="file" id="bkFile" accept="application/json,.json" class="sr-only">
-        <div class="sub" style="margin-top:6px">Restoring adds the backup’s trips to this browser. Trips with the same ID get replaced.</div></div>
-      <div class="sub" id="bkUsage"></div>
+        <div class="sub" style="margin-top:6px">Restoring adds the backup’s trips to this browser (and to GitHub, if sync is on). Trips with the same ID get replaced.</div></div>
+      <div class="sub" id="bkUsage"></div></div></details>
       <div class="sub" style="border-top:1px solid var(--line);padding-top:12px;font-size:12px">Map data: Natural Earth (public domain) via world-atlas and us-atlas. City search: GeoNames (CC BY 4.0). Maps drawn with D3.</div>
     </div></div>`;
+  const drawSync = () => {
+    const sec = $('#syncSec', m); if (!sec) return;
+    const keepOpen = sec.querySelector('details.howto')?.open;
+    sec.innerHTML = syncSectionHTML();
+    if (keepOpen) sec.querySelector('details.howto').open = true;
+    const form = $('#syncForm', sec);
+    if (form){
+      const prev = Sync.cfg || JSON.parse(lsGet('tripatlas.syncHint') || '{}');
+      if (prev.owner) $('#sOwner', sec).value = prev.owner;
+      if (prev.repo) $('#sRepo', sec).value = prev.repo;
+      form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const owner = $('#sOwner', sec).value, repo = $('#sRepo', sec).value, token = $('#sToken', sec).value;
+        const err = $('#sErr', sec);
+        if (!owner.trim() || !repo.trim() || !token.trim()){ err.textContent = 'Fill in all three fields.'; return; }
+        const btn = $('#sConnect', sec); btn.disabled = true; btn.textContent = 'Connecting…'; err.textContent = '';
+        try {
+          lsSet('tripatlas.syncHint', JSON.stringify({ owner:owner.trim(), repo:repo.trim() }));
+          await Sync.connect({ owner, repo, token });
+          toast('Connected — your trips are syncing'); drawSync();
+        } catch(ex){ err.textContent = ex.message || 'Couldn’t connect.'; btn.disabled = false; btn.textContent = 'Connect'; }
+      });
+    }
+    sec.querySelector('[data-syncnow]')?.addEventListener('click', () => Sync.run());
+    sec.querySelector('[data-syncoff]')?.addEventListener('click', () => confirmBox('Disconnect GitHub sync?', 'Trips stay on this phone and in the repository, but they’ll stop syncing until you connect again.', 'Disconnect', async () => { await Sync.disconnect(); drawSync(); }));
+    sec.querySelector('[data-synctoken]')?.addEventListener('click', async () => { const c = Sync.cfg; await Sync.disconnect(); lsSet('tripatlas.syncHint', JSON.stringify({ owner:c.owner, repo:c.repo })); drawSync(); $('#sToken', m)?.focus(); });
+  };
+  drawSync();
+  Sync.onStatus = drawSync;
   document.body.appendChild(m);
-  const close = () => { m.remove(); document.removeEventListener('keydown', onEsc); };
+  const close = () => { m.remove(); Sync.onStatus = null; document.removeEventListener('keydown', onEsc); };
   const onEsc = e => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', onEsc);
   m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-x]')) close(); });
@@ -1529,8 +1925,12 @@ function openBackup(){
     catch(ex){ toast(ex && ex.message && ex.message.includes('Trip Atlas') ? ex.message : 'Could not read that backup file'); }
     lbl.textContent = 'Restore from a backup…'; e.target.value = '';
   });
-  $('#bkExport', m).focus();
+  ($('#sOwner', m) || $('[data-syncnow]', m) || $('#bkExport', m)).focus({ preventScroll:true });
 }
+// sync again when the app comes back to the foreground or the phone reconnects
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') Sync.schedule(300); });
+window.addEventListener('online', () => Sync.schedule(300));
+setInterval(() => { if (document.visibilityState === 'visible') Sync.schedule(0); }, 4 * 60 * 1000);
 $('#backupBtn').addEventListener('click', openBackup);
 document.addEventListener('click', e => { const a = e.target.closest('[data-backup]'); if (a){ e.preventDefault(); openBackup(); } });
 
