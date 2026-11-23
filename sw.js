@@ -1,11 +1,11 @@
 // Trip Atlas service worker: makes the app load offline and install to the home screen.
 // Bump VERSION whenever you change files so visitors get the update.
-const VERSION = 'trip-atlas-v1';
+const VERSION = 'trip-atlas-v3';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
-  'vendor/d3.min.js', 'vendor/topojson-client.min.js',
-  'data/countries-50m.json', 'data/states-10m.json', 'data/meta.json',
-  'icons/icon-192.png', 'icons/apple-touch-icon.png'
+  'd3.min.js', 'topojson-client.min.js',
+  'countries-50m.json', 'states-10m.json', 'meta.json',
+  'icon-192.png', 'apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (e) => {
